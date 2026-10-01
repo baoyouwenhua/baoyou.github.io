@@ -1,0 +1,2632 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>包游战场</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;background:#05060a;color:#e0e0e0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;user-select:none;-webkit-user-select:none}
+
+#bg{position:fixed;inset:0;z-index:0;background:radial-gradient(ellipse at 50% 0%,rgba(74,222,128,0.12) 0%,transparent 50%),radial-gradient(ellipse at 50% 100%,rgba(34,197,94,0.06) 0%,transparent 50%),#05060a}
+#bg::after{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(74,222,128,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(74,222,128,0.04) 1px,transparent 1px);background-size:60px 60px;mask-image:radial-gradient(ellipse at center,black 30%,transparent 75%);-webkit-mask-image:radial-gradient(ellipse at center,black 30%,transparent 75%)}
+
+#navbar{position:fixed;top:0;left:0;right:0;height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 32px;background:rgba(5,6,10,0.6);backdrop-filter:blur(10px);border-bottom:1px solid rgba(74,222,128,0.1);z-index:100}
+#logo{font-size:1.05rem;font-weight:900;letter-spacing:3px;color:#4ade80;text-shadow:0 0 20px rgba(74,222,128,0.6);cursor:pointer}
+#navTabs{display:flex;gap:6px}
+.nav-tab{padding:8px 20px;border-radius:8px;border:none;background:transparent;color:#888;font-family:inherit;font-size:0.9rem;cursor:pointer;transition:all 0.2s;position:relative}
+.nav-tab:hover{color:#ccc}
+.nav-tab.active{color:#4ade80;background:rgba(74,222,128,0.08)}
+.nav-tab.active::after{content:'';position:absolute;bottom:-1px;left:20%;right:20%;height:2px;background:#4ade80;box-shadow:0 0 12px #4ade80;border-radius:1px}
+#userArea{display:flex;align-items:center;gap:12px}
+#loginBtn{padding:8px 20px;border-radius:8px;border:1px solid rgba(74,222,128,0.4);background:rgba(74,222,128,0.08);color:#4ade80;font-family:inherit;font-size:0.9rem;cursor:pointer}
+#userTag{display:none;align-items:center;gap:10px;padding:5px 14px 5px 5px;background:rgba(0,0,0,0.5);border:1px solid rgba(74,222,128,0.4);border-radius:24px}
+#userTag.show{display:flex}
+#userAvatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#4ade80,#22c55e);display:flex;align-items:center;justify-content:center;color:#05060a;font-weight:900;font-size:0.85rem}
+#userName{font-size:0.85rem;color:#e0e0e0}
+#logoutBtn{color:#555;font-size:0.75rem;cursor:pointer;margin-left:4px}
+#logoutBtn:hover{color:#ef4444}
+
+.page{position:fixed;top:60px;left:0;right:0;bottom:0;display:none;overflow-y:auto;z-index:10}
+.page.active{display:block}
+#pageHome{flex-direction:column;align-items:center;justify-content:center}
+#pageHome.active{display:flex}
+#gameTitle{font-size:5rem;font-weight:900;letter-spacing:14px;text-align:center;color:transparent;background:linear-gradient(180deg,#4ade80 0%,#22c55e 60%,#15803d 100%);-webkit-background-clip:text;background-clip:text;filter:drop-shadow(0 0 40px rgba(74,222,128,0.5));animation:titlePulse 3s ease-in-out infinite;line-height:1}
+@keyframes titlePulse{0%,100%{filter:drop-shadow(0 0 30px rgba(74,222,128,0.4))}50%{filter:drop-shadow(0 0 60px rgba(74,222,128,0.8))}}
+#gameSubtitle{color:#555;font-size:0.75rem;letter-spacing:8px;margin-top:16px;margin-bottom:60px}
+#startBtn{padding:22px 80px;font-size:1.3rem;font-weight:900;letter-spacing:4px;font-family:inherit;color:#05060a;background:linear-gradient(135deg,#4ade80,#22c55e);border:none;border-radius:14px;cursor:pointer;transition:all 0.25s;box-shadow:0 0 40px rgba(74,222,128,0.4)}
+#startBtn:hover{transform:translateY(-3px);box-shadow:0 0 70px rgba(74,222,128,0.7)}
+#homeHint{margin-top:30px;color:#333;font-size:0.75rem;letter-spacing:2px}
+.page-inner{padding:60px 40px;max-width:900px;margin:0 auto}
+.page-title{font-size:1.8rem;font-weight:900;color:#4ade80;letter-spacing:3px;margin-bottom:8px}
+.page-sub{color:#555;font-size:0.85rem;margin-bottom:40px}
+.log-entry{padding:20px;background:rgba(255,255,255,0.02);border-left:3px solid rgba(74,222,128,0.4);border-radius:8px;margin-bottom:16px}
+.log-entry .version{color:#4ade80;font-weight:bold;font-size:1rem;margin-bottom:4px}
+.log-entry .date{color:#555;font-size:0.75rem;margin-bottom:10px}
+.log-entry ul{list-style:none;padding-left:0}
+.log-entry li{color:#aaa;font-size:0.88rem;padding:4px 0 4px 18px;position:relative}
+.log-entry li::before{content:'▸';position:absolute;left:0;color:#4ade80}
+
+.add-friend-row{display:flex;gap:8px;margin-bottom:20px}
+.add-friend-row input{flex:1;padding:11px 14px;border:1px solid rgba(74,222,128,.3);border-radius:10px;background:rgba(0,0,0,.4);color:#e0e0e0;font-family:inherit;font-size:14px;outline:none}
+.add-friend-row input:focus{border-color:#4ade80}
+.add-friend-row button{padding:11px 22px;background:linear-gradient(135deg,#4ade80,#22c55e);color:#05060a;border:none;border-radius:10px;font-family:inherit;font-weight:900;font-size:14px;cursor:pointer}
+.friend-sec{margin-bottom:24px}
+.friend-sec h3{color:#4ade80;font-size:1rem;margin-bottom:10px;letter-spacing:1px}
+.friend-item{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:rgba(255,255,255,.03);border:1px solid rgba(74,222,128,.15);border-radius:12px;margin-bottom:8px;cursor:pointer;transition:.2s}
+.friend-item:hover{border-color:#4ade80;background:rgba(74,222,128,.06)}
+.friend-item .fname{font-weight:600;font-size:15px;color:#e0e0e0}
+.friend-item .flast{font-size:12px;color:#666;margin-top:2px}
+.friend-item .fright{display:flex;align-items:center;gap:8px}
+.unread-num{background:#ef4444;color:#fff;font-size:11px;padding:1px 7px;border-radius:10px;font-weight:700}
+.req-actions{display:flex;gap:6px}
+.req-actions button{padding:5px 14px;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.req-accept{background:#4ade80;color:#05060a}
+.req-reject{background:rgba(255,255,255,.08);color:#888}
+.spinner{width:36px;height:36px;border:3px solid rgba(74,222,128,.2);border-top-color:#4ade80;border-radius:50%;animation:spin .8s linear infinite;margin:40px auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{text-align:center;color:#555;font-size:13px;padding-bottom:20px}
+.empty-hint{text-align:center;color:#444;font-size:13px;padding:20px 0}
+
+.chat-wrap{max-width:700px;margin:0 auto;padding:20px;display:flex;flex-direction:column;height:calc(100vh - 60px)}
+.chat-header{display:flex;align-items:center;gap:12px;padding-bottom:14px;border-bottom:1px solid rgba(74,222,128,.15);margin-bottom:14px}
+.chat-back{background:rgba(255,255,255,.06);color:#ccc;border:none;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.chat-title{font-size:16px;font-weight:700;color:#4ade80;flex:1}
+.chat-report-btn{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.4);padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.chat-box{flex:1;padding:14px;background:rgba(255,255,255,.02);border-radius:14px;overflow-y:auto;margin-bottom:12px;min-height:200px}
+.chat-msg{display:flex;margin-bottom:12px}
+.chat-msg.me{justify-content:flex-end}
+.chat-msg.other{justify-content:flex-start}
+.chat-bubble{max-width:72%;padding:10px 14px;border-radius:10px;font-size:14px;line-height:1.5;word-break:break-word}
+.chat-msg.me .chat-bubble{background:#4ade80;color:#05060a}
+.chat-msg.other .chat-bubble{background:rgba(255,255,255,.08);color:#e0e0e0}
+.chat-input-bar{display:flex;gap:8px}
+.chat-input-bar input{flex:1;padding:11px 14px;border:1px solid rgba(74,222,128,.3);border-radius:10px;background:rgba(0,0,0,.4);color:#e0e0e0;font-family:inherit;font-size:14px;outline:none}
+.chat-input-bar button{padding:11px 24px;background:linear-gradient(135deg,#4ade80,#22c55e);color:#05060a;border:none;border-radius:10px;font-weight:900;font-size:14px;cursor:pointer;font-family:inherit}
+
+.admin-tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.admin-tabs button{padding:9px 20px;background:rgba(255,255,255,.04);border:1px solid rgba(74,222,128,.15);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;color:#888;font-family:inherit}
+.admin-tabs button.active{background:#4ade80;color:#05060a;border-color:#4ade80}
+.admin-sec{display:none}
+.admin-sec.active{display:block}
+.user-card{background:rgba(255,255,255,.03);border:1px solid rgba(74,222,128,.15);border-radius:12px;padding:14px 16px;margin-bottom:10px}
+.user-card .uname{font-weight:700;font-size:15px;color:#e0e0e0}
+.user-card .umeta{font-size:12px;color:#666;margin-top:2px}
+.user-card .uactions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+.user-card .uactions button{padding:5px 14px;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.btn-red{background:#ef4444;color:#fff}
+.btn-green{background:#4ade80;color:#05060a}
+.badge-ban{display:inline-block;font-size:10px;padding:1px 7px;border-radius:8px;background:#ef4444;color:#fff;margin-left:6px}
+.badge-mute{display:inline-block;font-size:10px;padding:1px 7px;border-radius:8px;background:#f59e0b;color:#fff;margin-left:6px}
+
+.modal-ov{position:fixed;inset:0;background:rgba(5,6,10,.88);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:400}
+.modal-ov.show{display:flex}
+.modal-card{width:360px;max-width:90vw;padding:28px;background:rgba(10,12,18,.98);border:1px solid rgba(74,222,128,.3);border-radius:16px;box-shadow:0 0 60px rgba(74,222,128,0.15)}
+.modal-card h3{color:#4ade80;font-size:1.1rem;letter-spacing:2px;margin-bottom:16px;text-align:center}
+.modal-card input,.modal-card textarea,.modal-card select{width:100%;padding:11px 14px;margin-bottom:10px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(0,0,0,.5);color:#e0e0e0;font-family:inherit;font-size:14px;outline:none}
+.modal-card textarea{min-height:80px;resize:vertical}
+.modal-card .btn-row{display:flex;gap:10px;margin-top:14px}
+.modal-card .btn-row button{flex:1;padding:11px;border-radius:8px;border:none;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.btn-primary{background:#4ade80;color:#05060a}
+.btn-ghost{background:transparent;border:1px solid rgba(255,255,255,.15);color:#888}
+.tab-toggle{display:flex;gap:8px;margin-bottom:16px}
+.tab-toggle button{flex:1;padding:9px;border:none;border-radius:8px;background:rgba(255,255,255,.06);color:#888;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px}
+.tab-toggle button.active{background:#4ade80;color:#05060a}
+
+.mode-options{display:flex;gap:16px;margin-bottom:20px}
+.mode-card{width:180px;padding:30px 20px;background:rgba(255,255,255,.02);border:2px solid rgba(74,222,128,.2);border-radius:16px;cursor:pointer;transition:all 0.25s;font-family:inherit;color:#e0e0e0}
+.mode-card:hover{border-color:#4ade80;background:rgba(74,222,128,.08)}
+.mode-card .mode-icon{font-size:2.2rem;margin-bottom:12px}
+.mode-card .mode-name{font-size:1rem;font-weight:bold;letter-spacing:2px;margin-bottom:6px}
+.mode-card .mode-desc{font-size:0.75rem;color:#666;line-height:1.5}
+
+#gameLayer{position:fixed;inset:0;display:none;z-index:150;background:#05060a}
+#gameLayer.show{display:block}
+#gameCanvas{display:block;position:fixed;inset:0;z-index:0}
+#topLeftHUD{position:fixed;left:12px;top:12px;width:260px;pointer-events:auto;z-index:60}
+.hud-stat{background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:6px 12px;font-size:13px;margin-bottom:6px}
+.hud-stat .gold{color:#fbbf24;font-weight:bold}
+.hud-stat .kills{color:#f87171;font-weight:bold}
+#worldChat{background:rgba(0,0,0,.55);border:1px solid rgba(74,222,128,.2);border-radius:10px;padding:8px;margin-top:6px}
+#worldChatList{max-height:140px;overflow-y:auto;font-size:12px;line-height:1.5;margin-bottom:6px}
+#worldChatList::-webkit-scrollbar{width:4px}
+#worldChatList::-webkit-scrollbar-thumb{background:rgba(74,222,128,.3);border-radius:2px}
+#worldChatList .cm{margin-bottom:3px;cursor:pointer;padding:2px 4px;border-radius:4px;word-break:break-word}
+#worldChatList .cm:hover{background:rgba(239,68,68,.15)}
+#worldChatList .cm .cn{color:#60a5fa;font-weight:bold}
+#worldChatInputRow{display:flex;gap:4px}
+#worldChatInput{flex:1;padding:6px 8px;border:1px solid rgba(74,222,128,.3);border-radius:6px;background:rgba(0,0,0,.5);color:#e0e0e0;font-family:inherit;font-size:12px;outline:none}
+#worldChatInput:focus{border-color:#4ade80}
+#worldChatSend{padding:6px 10px;border:none;border-radius:6px;background:#4ade80;color:#05060a;font-weight:900;font-size:12px;cursor:pointer;font-family:inherit}
+#ammoCorner{position:fixed;right:16px;bottom:180px;background:rgba(0,0,0,.7);border:1px solid rgba(251,191,36,.5);border-radius:10px;padding:8px 16px;text-align:right;z-index:60}
+#ammoCorner .num{font-size:1.5rem;font-weight:bold;color:#fbbf24;line-height:1}
+#ammoCorner .lbl{font-size:11px;color:#888;margin-top:4px}
+#teamScore{position:fixed;top:12px;left:50%;transform:translateX(-50%);display:none;background:rgba(0,0,0,.7);border:1px solid rgba(96,165,250,.5);border-radius:10px;padding:8px 24px;text-align:center;z-index:60}
+#teamScore.show{display:block}
+#teamScore .timer{font-size:1.4rem;font-weight:bold;color:#60a5fa;letter-spacing:2px}
+#teamScore .score{font-size:12px;color:#888;margin-top:2px}
+#teamScore .score .red{color:#f87171;font-weight:bold}
+#teamScore .score .black{color:#aaa;font-weight:bold}
+#killFeed{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:55;pointer-events:none;text-align:center;width:auto;min-width:200px}
+.kill-msg{background:rgba(0,0,0,.55);color:#fff;font-size:14px;padding:6px 16px;border-radius:20px;margin-bottom:6px;display:inline-block;animation:killIn .3s ease;white-space:nowrap}
+.kill-msg .k{color:#f87171;font-weight:bold}
+.kill-msg .v{color:#888;font-weight:bold}
+.kill-msg .arrow{color:#fbbf24;margin:0 8px}
+@keyframes killIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+#joy{position:fixed;left:24px;bottom:24px;width:120px;height:120px;border-radius:50%;border:2px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);display:none;z-index:70}
+#joy.show{display:block}
+#joyKnob{position:absolute;left:50%;top:50%;width:50px;height:50px;margin:-25px 0 0 -25px;border-radius:50%;background:rgba(255,255,255,.25)}
+.g-btn{position:fixed;border-radius:50%;font-family:inherit;font-weight:bold;display:none;z-index:70;touch-action:none}
+.g-btn.show{display:block}
+#fireBtn{right:24px;bottom:32px;width:84px;height:84px;border:2px solid rgba(248,113,113,.6);background:rgba(248,113,113,.15);color:#f87171;font-size:14px}
+#reloadBtn{right:116px;bottom:32px;width:64px;height:64px;border:2px solid rgba(251,191,36,.6);background:rgba(251,191,36,.15);color:#fbbf24;font-size:12px}
+#switchBtn{right:24px;bottom:124px;width:64px;height:64px;border:2px solid rgba(96,165,250,.6);background:rgba(96,165,250,.15);color:#60a5fa;font-size:12px}
+#exitBtn{position:fixed;left:12px;top:12px;padding:8px 14px;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#ccc;font-family:inherit;font-size:12px;cursor:pointer;z-index:80;display:none}
+#exitBtn.show{display:block}
+#shopPanel{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:90%;max-width:420px;max-height:80vh;overflow-y:auto;background:rgba(15,15,25,.97);border:1px solid rgba(74,222,128,.4);border-radius:14px;padding:20px;z-index:200;display:none}
+#shopPanel.show{display:block}
+#shopPanel h2{color:#4ade80;font-size:1.2rem;margin-bottom:12px;text-align:center}
+#shopPanel .coins{text-align:center;color:#fbbf24;margin-bottom:16px;font-weight:bold}
+.shop-item{display:flex;justify-content:space-between;align-items:center;padding:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;margin-bottom:8px}
+.shop-item .name{color:#e0e0e0;font-size:0.95rem}
+.shop-item .desc{color:#666;font-size:0.75rem;margin-top:2px}
+.shop-item button{padding:8px 16px;border-radius:6px;border:1px solid #4ade80;background:transparent;color:#4ade80;cursor:pointer;font-size:0.85rem;font-family:inherit}
+.shop-item button:disabled{border-color:#333;color:#555;cursor:default}
+#closeShop{display:block;margin:16px auto 0;padding:10px 32px;border-radius:8px;border:none;background:#4ade80;color:#0f0f1a;font-weight:bold;cursor:pointer;font-family:inherit}
+#endOverlay{position:fixed;inset:0;background:rgba(10,10,15,.92);display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:300}
+#endOverlay.show{display:flex}
+#endOverlay h2{font-size:2.2rem}
+#endOverlay button{padding:14px 40px;border-radius:8px;border:none;background:#4ade80;color:#0f0f1a;font-weight:bold;font-size:1rem;cursor:pointer;font-family:inherit}
+</style>
+</head><body>
+
+<div id="bg"></div>
+
+<!-- ========== 顶栏 ========== -->
+<nav id="navbar">
+<div id="logo">包游战场</div>
+<div id="navTabs">
+<button class="nav-tab active" data-page="home">首页</button>
+<button class="nav-tab" data-page="log">更新日志</button>
+<button class="nav-tab" data-page="friends">好友</button>
+<button class="nav-tab" data-page="admin" id="adminNavBtn" style="display:none;">管理</button>
+</div>
+<div id="userArea">
+<button id="loginBtn">登录</button>
+<div id="userTag">
+<div id="userAvatar">?</div>
+<div id="userName">游客</div>
+<div id="logoutBtn">退出</div>
+</div>
+</div>
+</nav>
+
+<!-- ========== 首页 ========== -->
+<div class="page active" id="pageHome">
+<div id="gameTitle">包游战场</div>
+<div id="gameSubtitle">BAOYOU BATTLEFIELD</div>
+<button id="startBtn">开始游戏</button>
+<div id="homeHint">点击上方"开始游戏"选择模式</div>
+</div>
+
+<!-- ========== 更新日志 ========== -->
+<div class="page" id="pageLog">
+<div class="page-inner">
+<div class="page-title">更新日志</div>
+<div class="page-sub">CHANGELOG</div>
+<div class="log-entry">
+<div class="version">v0.3.0</div>
+<div class="date">游戏本体 + 联机</div>
+<ul>
+<li>单人模式（最多 10 真人，AI 补齐）</li>
+<li>团队模式（1v1 到 5v5）</li>
+<li>武器系统（手枪/步枪/狙击/机枪/长刀）</li>
+<li>商店 + 商人 + 金币</li>
+<li>世界聊天 + 击杀播报</li>
+<li>Supabase 实时联机</li>
+</ul>
+</div>
+<div class="log-entry">
+<div class="version">v0.2.0</div>
+<div class="date">大堂</div>
+<ul>
+<li>独立登录 / 注册系统</li>
+<li>好友系统 + 私信</li>
+<li>举报 + 消息审核 + 惩罚管理</li>
+</ul>
+</div>
+</div>
+</div>
+
+<!-- ========== 好友 ========== -->
+<div class="page" id="pageFriends">
+<div class="page-inner">
+<div class="page-title">好友</div>
+<div class="page-sub">FRIENDS</div>
+<div id="friendsLoading"><div class="spinner"></div><div class="loading-text">正在加载…</div></div>
+<div id="friendsContent" style="display:none;">
+<div class="add-friend-row">
+<input id="addFriendInput" placeholder="输入用户名，加为好友" maxlength="16">
+<button onclick="addFriend()">➕ 添加</button>
+</div>
+<div id="friendRequestsBox" class="friend-sec" style="display:none;">
+<h3>📨 待处理请求</h3>
+<div id="friendRequestsList"></div>
+</div>
+<div class="friend-sec">
+<h3>👥 我的好友</h3>
+<div id="friendsList"></div>
+</div>
+<div class="friend-sec">
+<h3>💬 会话</h3>
+<div id="chatList"></div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- ========== 私信 ========== -->
+<div class="page" id="pageChat">
+<div class="chat-wrap">
+<div class="chat-header">
+<button class="chat-back" onclick="switchPage('friends')">← 返回</button>
+<div class="chat-title" id="chatTitle">—</div>
+<button class="chat-report-btn" onclick="openReportCurrentUser()">🚩 举报</button>
+</div>
+<div class="chat-box" id="chatBox"></div>
+<div class="chat-input-bar" id="chatInputBar"></div>
+</div>
+</div>
+
+<!-- ========== 管理 ========== -->
+<div class="page" id="pageAdmin">
+<div class="page-inner">
+<div class="page-title">管理后台</div>
+<div class="page-sub">仅管理员黄凯可用</div>
+<div class="admin-tabs">
+<button class="active" data-admin-tab="users">👥 用户</button>
+<button data-admin-tab="reports">🚩 举报</button>
+<button data-admin-tab="review">🔍 审核</button>
+<button data-admin-tab="chatreports">💬 聊天举报</button>
+</div>
+<div class="admin-sec active" id="adminSecUsers"></div>
+<div class="admin-sec" id="adminSecReports"></div>
+<div class="admin-sec" id="adminSecReview"></div>
+<div class="admin-sec" id="adminSecChatreports"></div>
+</div>
+</div>
+
+<!-- ========== 游戏层 ========== -->
+<div id="gameLayer">
+<canvas id="gameCanvas"></canvas>
+
+<div id="topLeftHUD">
+<div class="hud-stat">💰 <span class="gold" id="hudGold">0</span></div>
+<div class="hud-stat">🎯 <span class="kills" id="hudKills">0</span></div>
+<div id="worldChat">
+<div id="worldChatList"></div>
+<div id="worldChatInputRow">
+<input id="worldChatInput" placeholder="说点什么…" maxlength="200">
+<button id="worldChatSend">发</button>
+</div>
+</div>
+</div>
+
+<div id="ammoCorner">
+<div class="num" id="ammoNum">10</div>
+<div class="lbl" id="ammoLabel">手枪</div>
+</div>
+
+<div id="teamScore">
+<div class="timer" id="teamTimer">10:00</div>
+<div class="score">我方 <span class="red" id="teamScoreRed">0</span> : <span class="black" id="teamScoreBlack">0</span> 敌方</div>
+</div>
+
+<div id="killFeed"></div>
+
+<div id="joy"><div id="joyKnob"></div></div>
+<button id="fireBtn" class="g-btn">开火</button>
+<button id="reloadBtn" class="g-btn">换弹</button>
+<button id="switchBtn" class="g-btn">换枪</button>
+<button id="exitBtn">← 退出</button>
+
+<div id="shopPanel">
+<h2>🏪 商人</h2>
+<div class="coins" id="shopCoins">金币：0</div>
+<div id="shopItems"></div>
+<button id="closeShop">关闭</button>
+</div>
+
+<div id="endOverlay">
+<h2 id="endText">游戏结束</h2>
+<button id="endBack">返回大堂</button>
+</div>
+</div>
+
+<!-- ========== 登录弹窗 ========== -->
+<div class="modal-ov" id="loginModal">
+<div class="modal-card">
+<div class="tab-toggle">
+<button id="tabLoginBtn" class="active">登录</button>
+<button id="tabRegBtn">注册</button>
+</div>
+<input type="text" id="loginUser" placeholder="用户名" maxlength="16" autocomplete="off">
+<input type="password" id="loginPass" placeholder="密码" maxlength="32" autocomplete="new-password">
+<div class="btn-row">
+<button class="btn-ghost" id="loginCancel">取消</button>
+<button class="btn-primary" id="loginSubmit">登录</button>
+</div>
+</div>
+</div>
+
+<!-- ========== 模式选择 ========== -->
+<div class="modal-ov" id="modeModal">
+<div class="modal-card">
+<h3>选择模式</h3>
+<div class="mode-options">
+<button class="mode-card" id="modeSolo">
+<div class="mode-icon">👤</div>
+<div class="mode-name">单人</div>
+<div class="mode-desc">最多 10 真人<br>AI 自动补齐</div>
+</button>
+<button class="mode-card" id="modeTeam">
+<div class="mode-icon">👥</div>
+<div class="mode-name">团队</div>
+<div class="mode-desc">10 分钟一局<br>1v1 到 5v5</div>
+</button>
+</div>
+<div class="btn-row"><button class="btn-ghost" id="cancelMode" style="width:100%">取消</button></div>
+</div>
+</div>
+
+<!-- ========== 团队人数选择 ========== -->
+<div class="modal-ov" id="teamSizeModal">
+<div class="modal-card">
+<h3>选择人数</h3>
+<div class="mode-options" style="flex-wrap:wrap;justify-content:center;">
+<button class="mode-card" style="width:110px;padding:18px 10px;" data-team-size="1">
+<div class="mode-name">1 v 1</div>
+</button>
+<button class="mode-card" style="width:110px;padding:18px 10px;" data-team-size="2">
+<div class="mode-name">2 v 2</div>
+</button>
+<button class="mode-card" style="width:110px;padding:18px 10px;" data-team-size="3">
+<div class="mode-name">3 v 3</div>
+</button>
+<button class="mode-card" style="width:110px;padding:18px 10px;" data-team-size="4">
+<div class="mode-name">4 v 4</div>
+</button>
+<button class="mode-card" style="width:110px;padding:18px 10px;" data-team-size="5">
+<div class="mode-name">5 v 5</div>
+</button>
+</div>
+<div class="btn-row"><button class="btn-ghost" id="cancelTeamSize" style="width:100%">取消</button></div>
+</div>
+</div>
+
+<!-- ========== 举报（私信）========== -->
+<div class="modal-ov" id="reportOverlay">
+<div class="modal-card">
+<h3>🚩 举报</h3>
+<div id="reportTarget" style="color:#7ee7ff;font-weight:600;font-size:14px;text-align:center;margin-bottom:14px;">——</div>
+<textarea id="reportReason" placeholder="请描述举报原因..."></textarea>
+<div class="btn-row">
+<button class="btn-ghost" onclick="closeReport()">取消</button>
+<button class="btn-primary" onclick="submitReport()">提交</button>
+</div>
+</div>
+</div>
+
+<!-- ========== 惩罚（管理员）========== -->
+<div class="modal-ov" id="punishOverlay">
+<div class="modal-card">
+<h3>🔨 惩罚</h3>
+<div id="punishTarget" style="color:#7ee7ff;font-weight:600;font-size:14px;text-align:center;margin-bottom:14px;">——</div>
+<select id="punishType">
+<option value="chat">禁私信</option>
+<option value="all">全站禁言</option>
+</select>
+<select id="punishDuration">
+<option value="1">1 小时</option>
+<option value="24">1 天</option>
+<option value="72">3 天</option>
+<option value="168">7 天</option>
+<option value="720">30 天</option>
+<option value="0">永久</option>
+</select>
+<div class="btn-row">
+<button class="btn-ghost" onclick="closePunish()">取消</button>
+<button class="btn-primary" style="background:#ef4444;color:#fff" onclick="doPunish()">确认封禁</button>
+</div>
+</div>
+</div>
+
+<!-- ========== 聊天举报 ========== -->
+<div class="modal-ov" id="chatReportOverlay">
+<div class="modal-card">
+<h3>🚩 举报消息</h3>
+<div id="chatReportTarget" style="color:#7ee7ff;font-weight:600;font-size:13px;text-align:center;margin-bottom:14px;word-break:break-word;">——</div>
+<textarea id="chatReportReason" placeholder="请描述举报原因..."></textarea>
+<div class="btn-row">
+<button class="btn-ghost" onclick="closeChatReport()">取消</button>
+<button class="btn-primary" onclick="submitChatReport()">提交</button>
+</div>
+</div>
+</div><script>(function(){
+'use strict';
+
+// ============================================
+// Supabase 配置
+// ============================================
+var SUPABASE_URL = "https://gklxkyznfegslkgefzas.supabase.co";
+var SUPABASE_KEY = "sb_publishable_1DNkeFcclVSVM19I6Q2AsA__DAIVlfg";
+var sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+var ADMIN_NAME = "黄凯";
+var ADMIN_PWD = "11080-hk";
+
+// ============================================
+// 工具函数
+// ============================================
+function esc(s){
+  return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+function fmt(t){
+  return t ? new Date(t).toLocaleString("zh-CN",{hour12:false}).slice(0,16) : "";
+}
+function getCurrentUser(){
+  try{return JSON.parse(localStorage.getItem('byBattleUser')||'null');}
+  catch(e){return null;}
+}
+function setCurrentUser(u){localStorage.setItem('byBattleUser',JSON.stringify(u));}
+function clearCurrentUser(){localStorage.removeItem('byBattleUser');}
+function validUsername(s){
+  return /^[A-Za-z0-9_\u4e00-\u9fa5]{1,16}$/.test(s);
+}
+
+// ============================================
+// 页面切换
+// ============================================
+var navTabs = document.querySelectorAll('.nav-tab[data-page]');
+var pages = {
+  home:document.getElementById('pageHome'),
+  log:document.getElementById('pageLog'),
+  friends:document.getElementById('pageFriends'),
+  chat:document.getElementById('pageChat'),
+  admin:document.getElementById('pageAdmin')
+};
+
+window.switchPage = function(name){
+  navTabs.forEach(function(t){t.classList.toggle('active', t.dataset.page===name);});
+  for(var k in pages) if(pages[k]) pages[k].classList.toggle('active', k===name);
+  if(name==='friends') loadFriendsPage();
+  if(name==='admin') loadAdminUsers();
+  if(name==='chat') renderChatPage();
+};
+
+navTabs.forEach(function(t){
+  t.addEventListener('click', function(){switchPage(t.dataset.page);});
+});
+document.getElementById('logo').addEventListener('click', function(){switchPage('home');});
+
+// ============================================
+// 模式选择
+// ============================================
+var modeModal = document.getElementById('modeModal');
+var teamSizeModal = document.getElementById('teamSizeModal');
+
+document.getElementById('startBtn').addEventListener('click', function(){
+  modeModal.classList.add('show');
+});
+document.getElementById('cancelMode').addEventListener('click', function(){
+  modeModal.classList.remove('show');
+});
+modeModal.addEventListener('click', function(e){
+  if(e.target===modeModal) modeModal.classList.remove('show');
+});
+document.getElementById('cancelTeamSize').addEventListener('click', function(){
+  teamSizeModal.classList.remove('show');
+});
+teamSizeModal.addEventListener('click', function(e){
+  if(e.target===teamSizeModal) teamSizeModal.classList.remove('show');
+});
+
+document.getElementById('modeSolo').addEventListener('click', function(){
+  modeModal.classList.remove('show');
+  startGame('solo', 0);
+});
+document.getElementById('modeTeam').addEventListener('click', function(){
+  modeModal.classList.remove('show');
+  teamSizeModal.classList.add('show');
+});
+document.querySelectorAll('[data-team-size]').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    var size = parseInt(btn.dataset.teamSize, 10);
+    teamSizeModal.classList.remove('show');
+    startGame('team', size);
+  });
+});
+
+// ============================================
+// 登录 / 注册
+// ============================================
+var loginModal = document.getElementById('loginModal');
+var loginBtn = document.getElementById('loginBtn');
+var userTag = document.getElementById('userTag');
+var adminNavBtn = document.getElementById('adminNavBtn');
+var authMode = 'login';
+
+function showLoginModal(){
+  loginModal.classList.add('show');
+  document.getElementById('loginUser').value='';
+  document.getElementById('loginPass').value='';
+  document.getElementById('loginUser').focus();
+}
+function hideLoginModal(){loginModal.classList.remove('show');}
+
+function renderUserTag(){
+  var u = getCurrentUser();
+  if(!u){
+    userTag.classList.remove('show');
+    loginBtn.style.display='';
+    adminNavBtn.style.display='none';
+    return;
+  }
+  userTag.classList.add('show');
+  loginBtn.style.display='none';
+  document.getElementById('userAvatar').textContent = (u.username||'?').charAt(0).toUpperCase();
+  document.getElementById('userName').textContent = u.username;
+  adminNavBtn.style.display = (u.username==='黄凯' && u.role==='admin') ? 'inline-block' : 'none';
+}
+
+function loginSuccess(user){
+  setCurrentUser(user);
+  renderUserTag();
+}
+function logout(){
+  clearCurrentUser();
+  renderUserTag();
+  switchPage('home');
+}
+
+loginBtn.addEventListener('click', showLoginModal);
+document.getElementById('loginCancel').addEventListener('click', hideLoginModal);
+loginModal.addEventListener('click', function(e){
+  if(e.target===loginModal) hideLoginModal();
+});
+
+document.getElementById('tabLoginBtn').addEventListener('click', function(){
+  authMode='login';
+  this.classList.add('active');
+  document.getElementById('tabRegBtn').classList.remove('active');
+  document.getElementById('loginSubmit').textContent='登录';
+});
+document.getElementById('tabRegBtn').addEventListener('click', function(){
+  authMode='register';
+  this.classList.add('active');
+  document.getElementById('tabLoginBtn').classList.remove('active');
+  document.getElementById('loginSubmit').textContent='注册';
+});
+
+document.getElementById('loginSubmit').addEventListener('click', async function(){
+  var u = document.getElementById('loginUser').value.trim();
+  var p = document.getElementById('loginPass').value;
+  if(!u || !p){alert('请填写用户名和密码');return;}
+  if(authMode==='register' && !validUsername(u)){
+    alert('用户名只能包含中文、字母、数字、下划线，1-16 位');
+    return;
+  }
+  this.disabled = true;
+  try{
+    var rpcName = authMode==='login' ? 'battle_login' : 'battle_register';
+    var res = await sb.rpc(rpcName, {p_username:u, p_password:p});
+    if(res.error) throw res.error;
+    if(!res.data.ok){alert(res.data.error||'操作失败');return;}
+    loginSuccess(res.data);
+    hideLoginModal();
+  }catch(e){
+    alert((authMode==='login'?'登录':'注册')+'失败：'+(e.message||e));
+  }finally{
+    this.disabled = false;
+  }
+});
+
+document.getElementById('loginPass').addEventListener('keydown', function(e){
+  if(e.key==='Enter') document.getElementById('loginSubmit').click();
+});
+document.getElementById('logoutBtn').addEventListener('click', logout);
+
+// ============================================
+// 管理 tab 切换
+// ============================================
+document.querySelectorAll('.admin-tabs button').forEach(function(b){
+  b.addEventListener('click', function(){
+    var tab = this.dataset.adminTab;
+    document.querySelectorAll('.admin-tabs button').forEach(function(x){x.classList.remove('active');});
+    this.classList.add('active');
+    document.querySelectorAll('.admin-sec').forEach(function(x){x.classList.remove('active');});
+    var sec = document.getElementById('adminSec'+tab.charAt(0).toUpperCase()+tab.slice(1));
+    if(sec) sec.classList.add('active');
+    if(tab==='users') loadAdminUsers();
+    if(tab==='reports') loadAdminReports();
+    if(tab==='review') loadAdminReview();
+    if(tab==='chatreports') loadAdminChatReports();
+  });
+});// ============================================
+// 好友 & 私信
+// ============================================
+var currentChatUser = null;
+var friendsLoaded = false;
+
+async function loadFriendsPage(){
+  var u = getCurrentUser();
+  if(!u){showLoginModal();return;}
+  var loading = document.getElementById('friendsLoading');
+  var content = document.getElementById('friendsContent');
+  loading.style.display='block';
+  content.style.display='none';
+  try{
+    var reqRes = await sb.rpc('battle_get_requests',{p_user:u.username});
+    var friRes = await sb.rpc('battle_get_friends',{p_user:u.username});
+    var reqs = reqRes.data || [];
+    var friends = friRes.data || [];
+
+    var reqBox = document.getElementById('friendRequestsBox');
+    var reqList = document.getElementById('friendRequestsList');
+    if(reqs.length){
+      reqBox.style.display='block';
+      reqList.innerHTML = reqs.map(function(r){
+        return '<div class="friend-item" style="cursor:default;"><div><div class="fname">'+esc(r.from_user)+'</div><div class="flast">'+fmt(r.created_at)+'</div></div><div class="req-actions"><button class="req-accept" onclick="acceptFriend(\''+esc(r.from_user)+'\')">同意</button><button class="req-reject" onclick="rejectFriend(\''+esc(r.from_user)+'\')">拒绝</button></div></div>';
+      }).join('');
+    } else reqBox.style.display='none';
+
+    var fl = document.getElementById('friendsList');
+    if(friends.length){
+      fl.innerHTML = friends.map(function(f){
+        return '<div class="friend-item" onclick="openChat(\''+esc(f.friend_name)+'\')"><div class="fname">'+esc(f.friend_name)+'</div><div class="fright">💬</div></div>';
+      }).join('');
+    } else fl.innerHTML = '<div class="empty-hint">还没有好友</div>';
+
+    await loadChatList(u.username);
+    friendsLoaded = true;
+  }catch(e){console.error(e);}
+  loading.style.display='none';
+  content.style.display='block';
+}
+
+async function loadChatList(me){
+  var box = document.getElementById('chatList');
+  var res = await sb.from('battle_social').select('*').eq('type','message').in('status',['approved','unread','read']).or('user_a.eq.'+me+',user_b.eq.'+me).order('created_at',{ascending:false}).limit(200);
+  var msgs = res.data || [];
+  var unRes = await sb.from('battle_social').select('*').eq('type','message').eq('status','unread').eq('user_b',me);
+  var unreads = unRes.data || [];
+  var unreadMap = {};
+  unreads.forEach(function(m){unreadMap[m.user_a]=(unreadMap[m.user_a]||0)+1;});
+  var lastMap = {};
+  msgs.forEach(function(m){
+    var other = m.user_a===me ? m.user_b : m.user_a;
+    if(!lastMap[other]) lastMap[other]=m;
+  });
+  var keys = Object.keys(lastMap);
+  if(!keys.length){box.innerHTML='<div class="empty-hint">暂无会话</div>';return;}
+  box.innerHTML = keys.map(function(k){
+    var m = lastMap[k];
+    var un = unreadMap[k]||0;
+    return '<div class="friend-item" onclick="openChat(\''+esc(k)+'\')"><div><div class="fname">'+esc(k)+(un?' <span class="unread-num">'+un+'</span>':'')+'</div><div class="flast">'+esc((m.content||'').slice(0,24))+'</div></div><div class="fright"><span style="font-size:11px;color:#555;">'+fmt(m.created_at)+'</span></div></div>';
+  }).join('');
+}
+
+window.addFriend = async function(){
+  var u = getCurrentUser();
+  if(!u){showLoginModal();return;}
+  var target = document.getElementById('addFriendInput').value.trim();
+  if(!target){alert('请输入用户名');return;}
+  if(target===u.username){alert('不能加自己');return;}
+  if(!validUsername(target)){alert('用户名格式不对');return;}
+  var res = await sb.rpc('battle_send_friend',{p_from:u.username, p_to:target});
+  if(res.error || !res.data.ok){alert((res.data&&res.data.error)||res.error.message);return;}
+  alert('申请已发送');
+  document.getElementById('addFriendInput').value='';
+  friendsLoaded=false;
+  loadFriendsPage();
+};
+
+window.acceptFriend = async function(from){
+  var u = getCurrentUser();
+  var res = await sb.rpc('battle_accept_friend',{p_user:u.username, p_target:from});
+  if(res.error || !res.data.ok){alert((res.data&&res.data.error)||res.error.message);return;}
+  friendsLoaded=false;
+  loadFriendsPage();
+};
+
+window.rejectFriend = async function(from){
+  var u = getCurrentUser();
+  var res = await sb.rpc('battle_reject_friend',{p_user:u.username, p_target:from});
+  if(res.error || !res.data.ok){alert((res.data&&res.data.error)||res.error.message);return;}
+  friendsLoaded=false;
+  loadFriendsPage();
+};
+
+window.openChat = function(username){
+  currentChatUser = username;
+  switchPage('chat');
+};
+
+async function renderChatPage(){
+  var u = getCurrentUser();
+  if(!u || !currentChatUser){switchPage('friends');return;}
+  document.getElementById('chatTitle').textContent = currentChatUser;
+  var box = document.getElementById('chatBox');
+  var bar = document.getElementById('chatInputBar');
+  box.innerHTML = '<div class="spinner"></div>';
+
+  var meRes = await sb.from('battle_users').select('ban_all_until,ban_chat_until').eq('username',u.username).single();
+  var me = meRes.data;
+  var banned = false;
+  if(me){
+    var now = Date.now();
+    var allBan = me.ban_all_until && new Date(me.ban_all_until).getTime() > now;
+    var chatBan = me.ban_chat_until && new Date(me.ban_chat_until).getTime() > now;
+    if(allBan || chatBan){
+      banned = true;
+      var until = allBan ? me.ban_all_until : me.ban_chat_until;
+      var label = allBan ? '全站禁言' : '禁止私信';
+      bar.innerHTML = '<div style="flex:1;padding:11px 14px;background:rgba(239,68,68,.2);color:#f87171;border-radius:10px;font-size:13px;text-align:center;">🚫 你已被'+label+'至 '+fmt(until)+'</div>';
+    }
+  }
+  if(!banned) bar.innerHTML = '<input id="chatInput" placeholder="输入消息…" maxlength="500" onkeydown="if(event.key===\'Enter\')sendChatMsg()"><button onclick="sendChatMsg()">发送</button>';
+
+  var msgRes = await sb.rpc('battle_get_messages',{p_user:u.username, p_other:currentChatUser});
+  var data = msgRes.data;
+  if(msgRes.error){box.innerHTML='<div class="empty-hint" style="color:#f87171">加载失败：'+esc(msgRes.error.message)+'</div>';return;}
+  if(!data || !data.length) box.innerHTML = '<div class="empty-hint">还没有消息，打个招呼吧</div>';
+  else box.innerHTML = data.map(function(m){
+    var isMe = m.from_user === u.username;
+    return '<div class="chat-msg '+(isMe?'me':'other')+'"><div class="chat-bubble">'+esc(m.content)+'</div></div>';
+  }).join('');
+  box.scrollTop = box.scrollHeight;
+  await sb.rpc('battle_mark_read',{p_user:u.username, p_other:currentChatUser}).catch(function(){});
+}
+
+window.sendChatMsg = async function(){
+  var u = getCurrentUser();
+  if(!u || !currentChatUser){alert('请先登录');return;}
+  var input = document.getElementById('chatInput');
+  if(!input) return;
+  var content = input.value.trim();
+  if(!content) return;
+  var res = await sb.rpc('battle_send_message',{p_from:u.username, p_to:currentChatUser, p_content:content});
+  if(res.error || !res.data.ok){alert((res.data&&res.data.error)||(res.error&&res.error.message)||'发送失败');return;}
+  input.value='';
+  if(res.data.status === 'pending_review') alert('消息包含敏感内容，已提交审核');
+  renderChatPage();
+};// ============================================
+// 举报（私信层）
+// ============================================
+var reportTargetUser = null;
+window.openReportCurrentUser = function(){
+  if(!currentChatUser) return;
+  reportTargetUser = currentChatUser;
+  document.getElementById('reportTarget').textContent = currentChatUser;
+  document.getElementById('reportReason').value = '';
+  document.getElementById('reportOverlay').classList.add('show');
+};
+window.closeReport = function(){document.getElementById('reportOverlay').classList.remove('show');};
+window.submitReport = async function(){
+  var u = getCurrentUser();
+  if(!u){alert('请先登录');return;}
+  var reason = document.getElementById('reportReason').value.trim();
+  if(!reason){alert('请填写举报原因');return;}
+  var res = await sb.rpc('battle_submit_report',{p_reporter:u.username, p_target_type:'user', p_target_id:null, p_target_user:reportTargetUser, p_reason:reason});
+  if(res.error || !res.data.ok){alert('提交失败');return;}
+  alert('举报已提交');
+  closeReport();
+};
+
+// ============================================
+// 管理员：用户列表
+// ============================================
+async function loadAdminUsers(){
+  var box = document.getElementById('adminSecUsers');
+  box.innerHTML = '<div class="spinner"></div>';
+  var res = await sb.from('battle_users').select('*').order('id',{ascending:false}).limit(100);
+  if(res.error){box.innerHTML = '<div class="empty-hint" style="color:#f87171">加载失败</div>';return;}
+  var data = res.data || [];
+  if(!data.length){box.innerHTML = '<div class="empty-hint">暂无用户</div>';return;}
+  box.innerHTML = data.map(function(u){
+    var now = Date.now();
+    var allBan = u.ban_all_until && new Date(u.ban_all_until).getTime() > now;
+    var chatBan = u.ban_chat_until && new Date(u.ban_chat_until).getTime() > now;
+    var banBadge = allBan ? '<span class="badge-ban">全站禁言</span>' : (chatBan ? '<span class="badge-mute">禁私信</span>' : '');
+    return '<div class="user-card"><div class="uname">'+esc(u.username)+banBadge+'</div>'+
+      '<div class="umeta">金币 '+u.coins+' · 击杀 '+u.kills+' · 死亡 '+u.deaths+'</div>'+
+      '<div class="uactions">'+
+      '<button class="btn-red" onclick="openPunish(\''+esc(u.username)+'\')">封禁</button>'+
+      '<button class="btn-green" onclick="unpunish(\''+esc(u.username)+'\')">解封</button>'+
+      '</div></div>';
+  }).join('');
+}
+
+// ============================================
+// 管理员：举报
+// ============================================
+async function loadAdminReports(){
+  var box = document.getElementById('adminSecReports');
+  box.innerHTML = '<div class="spinner"></div>';
+  var res = await sb.rpc('battle_get_reports',{p_admin:ADMIN_NAME, p_pwd:ADMIN_PWD});
+  if(res.error){box.innerHTML = '<div class="empty-hint" style="color:#f87171">加载失败：'+esc(res.error.message)+'</div>';return;}
+  var data = res.data || [];
+  if(!data.length){box.innerHTML = '<div class="empty-hint">暂无举报</div>';return;}
+  box.innerHTML = data.map(function(r){
+    var label = r.status==='pending'?'待处理':(r.status==='handled'?'已处理':'已忽略');
+    var actions = r.status==='pending'
+      ? '<div class="uactions" style="margin-top:10px;"><button class="btn-red" onclick="handleReport('+r.id+',\'handled\')">已处理</button><button class="btn-green" onclick="handleReport('+r.id+',\'ignored\')">忽略</button></div>'
+      : '';
+    return '<div class="user-card"><div class="uname">举报人：'+esc(r.reporter)+'</div>'+
+      '<div class="umeta">目标：'+esc(r.target_user||'-')+' · '+esc(r.target_type)+'</div>'+
+      '<div style="color:#ccc;font-size:13px;margin:8px 0;">'+esc(r.reason||'（无理由）')+'</div>'+
+      '<span class="badge-mute">'+label+'</span>'+actions+'</div>';
+  }).join('');
+}
+window.handleReport = async function(id, action){
+  var res = await sb.rpc('battle_handle_report',{p_admin:ADMIN_NAME, p_pwd:ADMIN_PWD, p_report_id:id, p_action:action});
+  if(res.error || !res.data.ok){alert('操作失败');return;}
+  loadAdminReports();
+};
+
+// ============================================
+// 管理员：审核
+// ============================================
+async function loadAdminReview(){
+  var box = document.getElementById('adminSecReview');
+  box.innerHTML = '<div class="spinner"></div>';
+  var res = await sb.from('battle_social').select('*').eq('type','message').eq('status','pending_review').order('id',{ascending:false}).limit(100);
+  if(res.error){box.innerHTML = '<div class="empty-hint" style="color:#f87171">加载失败</div>';return;}
+  var data = res.data || [];
+  if(!data.length){box.innerHTML = '<div class="empty-hint">暂无待审消息</div>';return;}
+  box.innerHTML = data.map(function(m){
+    return '<div class="user-card"><div class="uname">'+esc(m.user_a)+' → '+esc(m.user_b)+'</div>'+
+      '<div style="color:#ccc;font-size:13px;margin:8px 0;">'+esc(m.content)+'</div>'+
+      '<div class="uactions"><button class="btn-green" onclick="reviewMsg('+m.id+',\'approved\')">通过</button>'+
+      '<button class="btn-red" onclick="reviewMsg('+m.id+',\'blocked\')">屏蔽</button></div></div>';
+  }).join('');
+}
+window.reviewMsg = async function(id, status){
+  var res = await sb.rpc('battle_review_message',{p_admin:ADMIN_NAME, p_pwd:ADMIN_PWD, p_msg_id:id, p_status:status});
+  if(res.error || !res.data.ok){alert('操作失败');return;}
+  loadAdminReview();
+};
+
+// ============================================
+// 管理员：聊天举报
+// ============================================
+async function loadAdminChatReports(){
+  var box = document.getElementById('adminSecChatreports');
+  box.innerHTML = '<div class="spinner"></div>';
+  var res = await sb.rpc('battle_get_chat_reports',{p_admin:ADMIN_NAME, p_pwd:ADMIN_PWD});
+  if(res.error){box.innerHTML = '<div class="empty-hint" style="color:#f87171">加载失败：'+esc(res.error.message)+'</div>';return;}
+  var data = res.data || [];
+  if(!data.length){box.innerHTML = '<div class="empty-hint">暂无聊天举报</div>';return;}
+  box.innerHTML = data.map(function(r){
+    var label = r.status==='pending'?'待处理':(r.status==='handled'?'已处理':'已忽略');
+    var actions = r.status==='pending'
+      ? '<div class="uactions" style="margin-top:10px;"><button class="btn-red" onclick="handleChatReport('+r.id+',\'handled\')">已处理</button><button class="btn-green" onclick="handleChatReport('+r.id+',\'ignored\')">忽略</button></div>'
+      : '';
+    return '<div class="user-card"><div class="uname">举报人：'+esc(r.reporter)+'</div>'+
+      '<div class="umeta">目标：'+esc(r.target_user||'-')+'</div>'+
+      '<div style="color:#ccc;font-size:13px;margin:8px 0;word-break:break-word;">「'+esc(r.message_content||'')+'」</div>'+
+      '<div style="color:#fbbf24;font-size:13px;margin-bottom:8px;">理由：'+esc(r.reason||'（无）')+'</div>'+
+      '<span class="badge-mute">'+label+'</span>'+actions+'</div>';
+  }).join('');
+}
+window.handleChatReport = async function(id, action){
+  var res = await sb.rpc('battle_handle_chat_report',{p_admin:ADMIN_NAME, p_pwd:ADMIN_PWD, p_id:id, p_action:action});
+  if(res.error || !res.data.ok){alert('操作失败');return;}
+  loadAdminChatReports();
+};
+
+// ============================================
+// 管理员：封禁
+// ============================================
+var punishTargetUser = null;
+window.openPunish = function(username){
+  punishTargetUser = username;
+  document.getElementById('punishTarget').textContent = username;
+  document.getElementById('punishOverlay').classList.add('show');
+};
+window.closePunish = function(){document.getElementById('punishOverlay').classList.remove('show');};
+window.doPunish = async function(){
+  if(!punishTargetUser){alert('未选择目标');return;}
+  var type = document.getElementById('punishType').value;
+  var hours = parseInt(document.getElementById('punishDuration').value, 10);
+  var res = await sb.rpc('battle_punish',{p_admin:ADMIN_NAME, p_pwd:ADMIN_PWD, p_target:punishTargetUser, p_type:type, p_hours:hours});
+  if(res.error || !res.data.ok){alert('封禁失败');return;}
+  alert('已封禁至 '+fmt(res.data.until));
+  closePunish();
+  loadAdminUsers();
+};
+window.unpunish = async function(username){
+  var res = await sb.rpc('battle_unpunish',{p_admin:ADMIN_NAME, p_pwd:ADMIN_PWD, p_target:username});
+  if(res.error || !res.data.ok){alert('解封失败');return;}
+  loadAdminUsers();
+};// ============================================
+// 世界聊天
+// ============================================
+var worldChatChannel = null;
+
+function loadWorldChat(){
+  var listEl = document.getElementById('worldChatList');
+  if(!listEl) return;
+  sb.from('battle_world_chat').select('*').eq('status','approved').order('created_at',{ascending:false}).limit(30).then(function(res){
+    var data = (res.data || []).reverse();
+    listEl.innerHTML = data.map(function(m){
+      return '<div class="cm" data-id="'+m.id+'" data-user="'+esc(m.username)+'" data-content="'+esc(m.content)+'"><span class="cn">'+esc(m.username)+'：</span>'+esc(m.content)+'</div>';
+    }).join('');
+    listEl.scrollTop = listEl.scrollHeight;
+  });
+  if(!worldChatChannel){
+    worldChatChannel = sb.channel('world_chat_live')
+      .on('postgres_changes', {event:'INSERT', schema:'public', table:'battle_world_chat'}, function(payload){
+        var m = payload.new;
+        if(m.status !== 'approved') return;
+        var el = document.getElementById('worldChatList');
+        if(!el) return;
+        var div = document.createElement('div');
+        div.className = 'cm';
+        div.dataset.id = m.id;
+        div.dataset.user = m.username;
+        div.dataset.content = m.content;
+        div.innerHTML = '<span class="cn">'+esc(m.username)+'：</span>'+esc(m.content);
+        el.appendChild(div);
+        el.scrollTop = el.scrollHeight;
+      })
+      .subscribe();
+  }
+}
+
+window.sendWorldChat = async function(){
+  var u = getCurrentUser();
+  if(!u){alert('请先登录');return;}
+  var input = document.getElementById('worldChatInput');
+  var content = input.value.trim();
+  if(!content) return;
+  input.value = '';
+  var res = await sb.rpc('battle_send_world', {p_from:u.username, p_content:content});
+  if(res.error || !res.data.ok){
+    alert((res.data && res.data.error) || '发送失败');
+  }
+};
+
+// ============================================
+// 击杀播报
+// ============================================
+function showKill(killer, victim){
+  var feed = document.getElementById('killFeed');
+  if(!feed) return;
+  var div = document.createElement('div');
+  div.className = 'kill-msg';
+  div.innerHTML = '<span class="k">'+esc(killer)+'</span><span class="arrow">→</span><span class="v">'+esc(victim)+'</span>';
+  feed.appendChild(div);
+  setTimeout(function(){
+    div.style.transition = 'opacity .4s';
+    div.style.opacity = '0';
+    setTimeout(function(){ if(div.parentNode) div.parentNode.removeChild(div); }, 400);
+  }, 3000);
+}
+window.showKill = showKill;
+
+// ============================================
+// 聊天消息点击举报
+// ============================================
+var chatReportMsg = null;
+document.addEventListener('click', function(e){
+  var cm = e.target.closest('#worldChatList .cm');
+  if(!cm) return;
+  chatReportMsg = {
+    id: parseInt(cm.dataset.id, 10),
+    user: cm.dataset.user,
+    content: cm.dataset.content
+  };
+  document.getElementById('chatReportTarget').textContent = chatReportMsg.user+'：'+chatReportMsg.content;
+  document.getElementById('chatReportReason').value = '';
+  document.getElementById('chatReportOverlay').classList.add('show');
+});
+window.closeChatReport = function(){
+  document.getElementById('chatReportOverlay').classList.remove('show');
+};
+window.submitChatReport = async function(){
+  var u = getCurrentUser();
+  if(!u){alert('请先登录');return;}
+  if(!chatReportMsg){return;}
+  var reason = document.getElementById('chatReportReason').value.trim();
+  if(!reason){alert('请填写举报原因');return;}
+  var res = await sb.rpc('battle_report_chat',{
+    p_reporter: u.username,
+    p_target_user: chatReportMsg.user,
+    p_message_id: chatReportMsg.id,
+    p_message_content: chatReportMsg.content,
+    p_reason: reason
+  });
+  if(res.error || !res.data.ok){alert('提交失败');return;}
+  alert('举报已提交');
+  closeChatReport();
+};
+
+renderUserTag();// ============================================
+// 游戏引擎
+// ============================================
+// 常量
+var WORLD_W = 5000, WORLD_H = 5000;
+var TICK = 16.67;
+var VIEW_W = 0, VIEW_H = 0;
+var DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+// 武器表
+var WEAPONS = {
+  pistol: { name:'手枪',  dmg:25, mag:10,  reload:1000, cd:300, spread:0.03, speed:16, range:60, pierce:0, melee:false },
+  rifle:  { name:'步枪',  dmg:15, mag:150, reload:2200, cd:100, spread:0.05, speed:18, range:60, pierce:0, melee:false },
+  sniper: { name:'狙击',  dmg:90, mag:5,   reload:2500, cd:900, spread:0.005, speed:24, range:90, pierce:1, melee:false, slow:0.4 },
+  mg:     { name:'机枪',  dmg:12, mag:250, reload:3000, cd:80,  spread:0.08, speed:18, range:60, pierce:0, melee:false },
+  knife:  { name:'长刀',  dmg:30, mag:Infinity, reload:0, cd:500, spread:0, speed:0, range:2, pierce:0, melee:true }
+};
+var WEAPON_ORDER = ['pistol','rifle','sniper','mg','knife'];
+
+// 价格表
+var PRICES = {
+  rifle:  { solo:500, team:100 },
+  sniper: { solo:500, team:100 },
+  mg:     { solo:300, team:50 },
+  knife:  { solo:200, team:0 },
+  hp_pack:  { price:10,  name:'血包', desc:'+20 HP · 可叠3' },
+  hp_super: { price:30,  name:'超血', desc:'+60 HP' },
+  energy:   { price:20,  name:'能量饮料', desc:'+50% 速 8秒' }
+};
+
+// 相机偏移上限
+var CAM_LIMIT = {
+  pistol: 0,
+  rifle: 100,
+  sniper: 400,
+  mg: 200,
+  knife: 0
+};
+
+// 游戏状态
+var gameMode = 'solo';
+var gameRunning = false;
+var gameOver = false;
+var gameTime = 0;
+var matchTimerInterval = null;
+var teamSize = 0;
+
+var myPlayer = null;
+var ais = [];
+var bullets = [];
+var floatTexts = [];
+var obstacles = [];
+var goldBlocks = [];
+var merchant = null;
+var camera = { x:0, y:0 };
+var crosshair = { x:0, y:0 };
+var keys = {};
+var mouseDown = false;
+var mobileFire = false;
+var loopRunning = false;
+var lastTime = 0;
+var aiSeq = 0;
+
+var redKills = 0;
+var blackKills = 0;
+
+// ============================================
+// 玩家
+// ============================================
+function createPlayer(){
+  return {
+    x: WORLD_W/2, y: WORLD_H/2,
+    r: 14,
+    hp: 100, maxHp: 100,
+    baseSpeed: 3, speed: 3,
+    name: (getCurrentUser() && getCurrentUser().username) || '游客',
+    dead: false, respawn: 0,
+    gold: 0, kills: 0, deaths: 0,
+    weapon: 'pistol',
+    ammo: { pistol:10, rifle:0, sniper:0, mg:0, knife:Infinity },
+    reloading: false, reloadStart: 0,
+    fireCd: 0,
+    hp_pack: 0, hp_super: 0, energy: 0,
+    energyTime: 0,
+    team: 'red',
+    isMe: true,
+    retreating: false,
+    wander: 0, wanderDir: 0
+  };
+}
+
+// ============================================
+// AI
+// ============================================
+function createAI(team, isTeammate){
+  var x, y, tries = 0;
+  do {
+    var ang = Math.random() * Math.PI * 2;
+    var dist = 400 + Math.random() * 600;
+    x = (myPlayer ? myPlayer.x : WORLD_W/2) + Math.cos(ang) * dist;
+    y = (myPlayer ? myPlayer.y : WORLD_H/2) + Math.sin(ang) * dist;
+    if(x < 100) x = 100;
+    if(y < 100) y = 100;
+    if(x > WORLD_W-100) x = WORLD_W-100;
+    if(y > WORLD_H-100) y = WORLD_H-100;
+    tries++;
+  } while(tries < 50 && hitObstacle(x, y, 14));
+
+  var colors = team==='red'
+    ? {head:'#ef4444', body:'#dc2626', stroke:'#fca5a5'}
+    : {head:'#0a0a0a', body:'#1a1a1a', stroke:'#333'};
+
+  aiSeq++;
+  return {
+    x: x, y: y, r: 14,
+    hp: 100, maxHp: 100,
+    baseSpeed: 1.5 + Math.random()*0.4,
+    speed: 1.6,
+    name: (isTeammate ? '队友' : (team==='red' ? '红队' : '黑队')) + aiSeq,
+    dead: false, respawn: 0,
+    fireCd: 0,
+    wander: 0, wanderDir: 0,
+    retreating: false,
+    team: team,
+    isMe: false,
+    colors: colors,
+    weapon: 'rifle'
+  };
+}
+
+// ============================================
+// 障碍物
+// ============================================
+function circleHitsRect(cx, cy, r, rect){
+  var closestX = Math.max(rect.x, Math.min(cx, rect.x + rect.w));
+  var closestY = Math.max(rect.y, Math.min(cy, rect.y + rect.h));
+  var dx = cx - closestX, dy = cy - closestY;
+  return dx*dx + dy*dy < r*r;
+}
+function hitObstacle(cx, cy, r){
+  for(var i=0; i<obstacles.length; i++){
+    if(circleHitsRect(cx, cy, r, obstacles[i])) return true;
+  }
+  return false;
+}
+
+function buildObstacles(){
+  obstacles = [];
+  var count = 40;
+  var tries = 0;
+  while(obstacles.length < count && tries < 500){
+    tries++;
+    var w = 100 + Math.random()*180;
+    var h = 100 + Math.random()*180;
+    var x = 100 + Math.random()*(WORLD_W - 200 - w);
+    var y = 100 + Math.random()*(WORLD_H - 200 - h);
+    if(x < WORLD_W/2 + 300 && x+w > WORLD_W/2 - 300 &&
+       y < WORLD_H/2 + 300 && y+h > WORLD_H/2 - 300) continue;
+    obstacles.push({x:x, y:y, w:w, h:h});
+  }
+}
+
+// ============================================
+// 灰块（赚钱点）
+// ============================================
+function spawnGoldBlocks(){
+  goldBlocks = [];
+  var count = 6;
+  var tries = 0;
+  while(goldBlocks.length < count && tries < 200){
+    tries++;
+    var size = 70;
+    var x = 150 + Math.random()*(WORLD_W - 300 - size);
+    var y = 150 + Math.random()*(WORLD_H - 300 - size);
+    if(hitObstacle(x+size/2, y+size/2, size)) continue;
+    if(merchant && Math.hypot(x+size/2 - merchant.x, y+size/2 - merchant.y) < 250) continue;
+    var bad = false;
+    for(var i=0; i<goldBlocks.length; i++){
+      if(Math.hypot(x - goldBlocks[i].x, y - goldBlocks[i].y) < 300){bad=true;break;}
+    }
+    if(bad) continue;
+    goldBlocks.push({x:x, y:y, w:size, h:size});
+  }
+}
+
+// ============================================
+// 商人
+// ============================================
+function placeMerchant(){
+  merchant = {x: WORLD_W/2 + 280, y: WORLD_H/2, r:22, name:'商人', interactRange:90};
+  var tries = 0;
+  while(tries < 200 && hitObstacle(merchant.x, merchant.y, merchant.r + 10)){
+    merchant.x = WORLD_W/2 + (Math.random()-0.5)*900;
+    merchant.y = WORLD_H/2 + (Math.random()-0.5)*900;
+    tries++;
+  }
+}
+
+function distanceToMerchant(){
+  if(!merchant || !myPlayer) return 999999;
+  return Math.hypot(myPlayer.x - merchant.x, myPlayer.y - merchant.y);
+}
+
+// ============================================
+// 画布
+// ============================================
+var gameCanvas = document.getElementById('gameCanvas');
+var gctx = gameCanvas.getContext('2d');
+
+function resizeGame(){
+  VIEW_W = window.innerWidth;
+  VIEW_H = window.innerHeight;
+  gameCanvas.width = VIEW_W * DPR;
+  gameCanvas.height = VIEW_H * DPR;
+  gameCanvas.style.width = VIEW_W + 'px';
+  gameCanvas.style.height = VIEW_H + 'px';
+  gctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener('resize', function(){
+  if(gameRunning) resizeGame();
+});
+
+var isTouch = ('ontouchstart' in window) || window.matchMedia('(pointer: coarse)').matches;// ============================================
+// 输入（键盘 / 鼠标）
+// ============================================
+window.addEventListener('keydown', function(e){
+  var k = e.key.toLowerCase();
+  keys[k] = true;
+  if(k===' '){ e.preventDefault(); }
+  if(k==='q') switchWeapon();
+  if(k==='r') startReload();
+  if(k==='f') tryOpenShop();
+  if(k==='1') useMed('hp_pack');
+  if(k==='2') useMed('hp_super');
+  if(k==='3') useMed('energy');
+  if(k==='escape') exitGame();
+});
+window.addEventListener('keyup', function(e){
+  keys[e.key.toLowerCase()] = false;
+});
+
+document.addEventListener('mousemove', function(e){
+  if(!gameRunning || isTouch) return;
+  var rect = gameCanvas.getBoundingClientRect();
+  crosshair.x = camera.x + (e.clientX - rect.left);
+  crosshair.y = camera.y + (e.clientY - rect.top);
+});
+document.addEventListener('mousedown', function(e){
+  if(!gameRunning || isTouch) return;
+  if(e.button===0) mouseDown = true;
+});
+document.addEventListener('mouseup', function(e){
+  if(!gameRunning || isTouch) return;
+  if(e.button===0) mouseDown = false;
+});
+
+// ============================================
+// 手机摇杆
+// ============================================
+var joyEl = document.getElementById('joy');
+var joyKnob = document.getElementById('joyKnob');
+var joyActive = false;
+var joyId = null;
+var joyCenter = {x:0, y:0};
+var joyVec = {x:0, y:0};
+var JOY_MAX = 50;
+
+function updateJoyCenter(){
+  var r = joyEl.getBoundingClientRect();
+  joyCenter.x = r.left + r.width/2;
+  joyCenter.y = r.top + r.height/2;
+}
+
+joyEl.addEventListener('touchstart', function(e){
+  e.preventDefault();
+  if(joyActive) return;
+  var t = e.changedTouches[0];
+  joyId = t.identifier;
+  joyActive = true;
+  updateJoyCenter();
+  handleJoyMove(t.clientX, t.clientY);
+}, {passive:false});
+
+document.addEventListener('touchmove', function(e){
+  if(!joyActive) return;
+  for(var i=0;i<e.changedTouches.length;i++){
+    if(e.changedTouches[i].identifier===joyId){
+      handleJoyMove(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
+      e.preventDefault();
+      return;
+    }
+  }
+}, {passive:false});
+
+function endJoy(e){
+  for(var i=0;i<e.changedTouches.length;i++){
+    if(e.changedTouches[i].identifier===joyId){
+      joyActive = false;
+      joyId = null;
+      joyVec.x = 0; joyVec.y = 0;
+      joyKnob.style.transform = 'translate(0,0)';
+    }
+  }
+}
+document.addEventListener('touchend', endJoy);
+document.addEventListener('touchcancel', endJoy);
+
+function handleJoyMove(cx, cy){
+  var dx = cx - joyCenter.x;
+  var dy = cy - joyCenter.y;
+  var d = Math.hypot(dx, dy);
+  if(d > JOY_MAX){ dx = dx/d*JOY_MAX; dy = dy/d*JOY_MAX; }
+  joyKnob.style.transform = 'translate('+dx+'px,'+dy+'px)';
+  joyVec.x = dx/JOY_MAX;
+  joyVec.y = dy/JOY_MAX;
+}
+
+// ============================================
+// 手机触摸（准星 + 点商人）
+// ============================================
+function isOnGameUI(cx, cy){
+  var el = document.elementFromPoint(cx, cy);
+  if(!el) return false;
+  var id = el.id;
+  if(id==='joy'||id==='joyKnob'||id==='fireBtn'||id==='reloadBtn'||id==='switchBtn') return true;
+  if(id==='exitBtn') return true;
+  if(id==='shopPanel'||id==='closeShop') return true;
+  if(el.closest && el.closest('#shopPanel')) return true;
+  if(el.closest && el.closest('#topLeftHUD')) return true;
+  return false;
+}
+
+function checkTapMerchant(cx, cy){
+  if(!isTouch || !merchant) return false;
+  var wx = camera.x + cx;
+  var wy = camera.y + cy;
+  var d = Math.hypot(wx - merchant.x, wy - merchant.y);
+  if(d < merchant.r + 30){
+    if(distanceToMerchant() < merchant.interactRange){
+      openShop();
+      return true;
+    }
+  }
+  return false;
+}
+
+document.addEventListener('touchstart', function(e){
+  if(!gameRunning) return;
+  for(var i=0;i<e.changedTouches.length;i++){
+    var t = e.changedTouches[i];
+    if(t.identifier===joyId) continue;
+    if(isOnGameUI(t.clientX, t.clientY)) continue;
+    if(checkTapMerchant(t.clientX, t.clientY)) continue;
+    var rect = gameCanvas.getBoundingClientRect();
+    crosshair.x = camera.x + (t.clientX - rect.left);
+    crosshair.y = camera.y + (t.clientY - rect.top);
+  }
+}, {passive:true});
+
+document.addEventListener('touchmove', function(e){
+  if(!gameRunning) return;
+  for(var i=0;i<e.changedTouches.length;i++){
+    var t = e.changedTouches[i];
+    if(t.identifier===joyId) continue;
+    if(isOnGameUI(t.clientX, t.clientY)) continue;
+    var rect = gameCanvas.getBoundingClientRect();
+    crosshair.x = camera.x + (t.clientX - rect.left);
+    crosshair.y = camera.y + (t.clientY - rect.top);
+  }
+}, {passive:true});
+
+// ============================================
+// 手机按钮
+// ============================================
+var fireBtn = document.getElementById('fireBtn');
+var reloadBtn = document.getElementById('reloadBtn');
+var switchBtn = document.getElementById('switchBtn');
+var exitBtn = document.getElementById('exitBtn');
+
+fireBtn.addEventListener('touchstart', function(e){ e.preventDefault(); mobileFire=true; }, {passive:false});
+fireBtn.addEventListener('touchend', function(e){ e.preventDefault(); mobileFire=false; }, {passive:false});
+fireBtn.addEventListener('touchcancel', function(){ mobileFire=false; });
+reloadBtn.addEventListener('touchstart', function(e){ e.preventDefault(); startReload(); }, {passive:false});
+switchBtn.addEventListener('touchstart', function(e){ e.preventDefault(); switchWeapon(); }, {passive:false});
+exitBtn.addEventListener('click', exitGame);
+
+// ============================================
+// 相机（玩家和准星的中间点，有上限）
+// ============================================
+function updateCamera(){
+  if(!myPlayer) return;
+  var limit = CAM_LIMIT[myPlayer.weapon] || 0;
+
+  var dx = crosshair.x - myPlayer.x;
+  var dy = crosshair.y - myPlayer.y;
+  var d = Math.hypot(dx, dy);
+  if(d > limit && limit > 0){
+    dx = dx/d*limit;
+    dy = dy/d*limit;
+  } else if(limit === 0){
+    dx = 0;
+    dy = 0;
+  }
+
+  var cx = myPlayer.x + dx/2;
+  var cy = myPlayer.y + dy/2;
+
+  camera.x = cx - VIEW_W/2;
+  camera.y = cy - VIEW_H/2;
+
+  camera.x = Math.max(0, Math.min(camera.x, Math.max(0, WORLD_W - VIEW_W)));
+  camera.y = Math.max(0, Math.min(camera.y, Math.max(0, WORLD_H - VIEW_H)));
+}
+
+// ============================================
+// 武器切换 / 换弹 / 用药
+// ============================================
+function hasWeapon(k){
+  if(k==='pistol') return true;
+  if(k==='knife') return WEAPONS.knife._bought || gameMode==='team';
+  if(k==='rifle') return WEAPONS.rifle._bought && myPlayer.ammo.rifle > 0;
+  if(k==='sniper') return WEAPONS.sniper._bought && myPlayer.ammo.sniper > 0;
+  if(k==='mg') return WEAPONS.mg._bought && myPlayer.ammo.mg > 0;
+  return false;
+}
+
+function switchWeapon(){
+  if(!myPlayer || myPlayer.dead) return;
+  var owned = [];
+  for(var i=0;i<WEAPON_ORDER.length;i++){
+    var k = WEAPON_ORDER[i];
+    if(hasWeapon(k)) owned.push(k);
+  }
+  if(owned.length <= 1) return;
+  var cur = owned.indexOf(myPlayer.weapon);
+  var next = owned[(cur+1) % owned.length];
+  myPlayer.weapon = next;
+  myPlayer.reloading = false;
+  updateAmmoHUD();
+  showFloat(myPlayer.x, myPlayer.y - 30, WEAPONS[next].name, '#60a5fa');
+}
+
+function startReload(){
+  if(!myPlayer || myPlayer.dead || myPlayer.reloading) return;
+  var w = WEAPONS[myPlayer.weapon];
+  if(w.melee) return;
+  if(myPlayer.ammo[myPlayer.weapon] >= w.mag) return;
+  myPlayer.reloading = true;
+  myPlayer.reloadStart = performance.now();
+}
+
+function finishReload(){
+  var w = WEAPONS[myPlayer.weapon];
+  myPlayer.ammo[myPlayer.weapon] = w.mag;
+  myPlayer.reloading = false;
+  updateAmmoHUD();
+}
+
+function useMed(type){
+  if(!myPlayer || myPlayer.dead) return;
+  if(type==='hp_pack' && myPlayer.hp_pack > 0){
+    myPlayer.hp = Math.min(myPlayer.maxHp, myPlayer.hp + 20);
+    myPlayer.hp_pack--;
+    showFloat(myPlayer.x, myPlayer.y - 30, '+20 HP', '#4ade80');
+  } else if(type==='hp_super' && myPlayer.hp_super > 0){
+    myPlayer.hp = Math.min(myPlayer.maxHp, myPlayer.hp + 60);
+    myPlayer.hp_super--;
+    showFloat(myPlayer.x, myPlayer.y - 30, '+60 HP', '#4ade80');
+  } else if(type==='energy' && myPlayer.energy > 0){
+    myPlayer.energy--;
+    myPlayer.energyTime = 8000;
+    showFloat(myPlayer.x, myPlayer.y - 30, '⚡ 加速', '#facc15');
+  }
+}
+
+// ============================================
+// 商店
+// ============================================
+function tryOpenShop(){
+  if(!myPlayer || myPlayer.dead) return;
+  if(distanceToMerchant() < merchant.interactRange){
+    openShop();
+  }
+}
+
+function openShop(){
+  var panel = document.getElementById('shopPanel');
+  var itemsEl = document.getElementById('shopItems');
+  document.getElementById('shopCoins').textContent = '金币：' + Math.floor(myPlayer.gold);
+  itemsEl.innerHTML = '';
+
+  var isTeam = gameMode === 'team';
+  var items = [];
+
+  if(!WEAPONS.rifle._bought){
+    items.push({key:'rifle', label:'步枪', desc:'伤害15 · 弹匣150', price: isTeam ? PRICES.rifle.team : PRICES.rifle.solo, type:'weapon'});
+  } else {
+    items.push({key:'ammo_rifle', label:'步枪子弹 ×50', desc:'50 发', price: 50, type:'ammo', target:'rifle', amount:50});
+  }
+  if(!WEAPONS.sniper._bought){
+    items.push({key:'sniper', label:'狙击枪', desc:'伤害90 · 弹匣5 · 可穿一墙', price: isTeam ? PRICES.sniper.team : PRICES.sniper.solo, type:'weapon'});
+  } else {
+    items.push({key:'ammo_sniper', label:'狙击子弹 ×5', desc:'5 发', price: 50, type:'ammo', target:'sniper', amount:5});
+  }
+  if(!WEAPONS.mg._bought){
+    items.push({key:'mg', label:'机枪', desc:'伤害12 · 弹匣250', price: isTeam ? PRICES.mg.team : PRICES.mg.solo, type:'weapon'});
+  } else {
+    items.push({key:'ammo_mg', label:'机枪子弹 ×100', desc:'100 发', price: 50, type:'ammo', target:'mg', amount:100});
+  }
+  if(!WEAPONS.knife._bought && gameMode !== 'team'){
+    items.push({key:'knife', label:'长刀', desc:'近战 · 伤害30', price: PRICES.knife.solo, type:'weapon'});
+  }
+
+  items.push({key:'hp_pack', label:'血包', desc:'+20 HP · 可叠3', price: PRICES.hp_pack.price, type:'med', target:'hp_pack'});
+  items.push({key:'hp_super', label:'超血', desc:'+60 HP', price: PRICES.hp_super.price, type:'med', target:'hp_super'});
+  items.push({key:'energy', label:'能量饮料', desc:'+50% 速 8秒', price: PRICES.energy.price, type:'med', target:'energy'});
+
+  items.forEach(function(it){
+    var div = document.createElement('div');
+    div.className = 'shop-item';
+    var info = document.createElement('div');
+    info.innerHTML = '<div class="name">'+it.label+'</div><div class="desc">'+it.desc+'</div>';
+    var btn = document.createElement('button');
+    btn.textContent = it.price + ' 金';
+    if(myPlayer.gold < it.price) btn.disabled = true;
+    else btn.onclick = function(){ buyItem(it); };
+    div.appendChild(info);
+    div.appendChild(btn);
+    itemsEl.appendChild(div);
+  });
+
+  panel.classList.add('show');
+}
+
+function buyItem(it){
+  if(myPlayer.gold < it.price) return;
+  if(it.type === 'weapon'){
+    WEAPONS[it.key]._bought = true;
+    if(it.key==='rifle') myPlayer.ammo.rifle = 150;
+    if(it.key==='sniper') myPlayer.ammo.sniper = 5;
+    if(it.key==='mg') myPlayer.ammo.mg = 250;
+    if(it.key==='knife') myPlayer.ammo.knife = Infinity;
+    myPlayer.weapon = it.key;
+  } else if(it.type === 'ammo'){
+    myPlayer.ammo[it.target] = (myPlayer.ammo[it.target]||0) + it.amount;
+  } else if(it.type === 'med'){
+    if(it.target==='hp_pack') myPlayer.hp_pack = Math.min(3, myPlayer.hp_pack + 1);
+    else if(it.target==='hp_super') myPlayer.hp_super++;
+    else if(it.target==='energy') myPlayer.energy++;
+  }
+  myPlayer.gold -= it.price;
+  updateAmmoHUD();
+  openShop();
+}
+
+document.getElementById('closeShop').addEventListener('click', function(){
+  document.getElementById('shopPanel').classList.remove('show');
+});
+
+// ============================================
+// HUD 更新
+// ============================================
+function updateAmmoHUD(){
+  if(!myPlayer) return;
+  var w = WEAPONS[myPlayer.weapon];
+  var ammo = myPlayer.ammo[myPlayer.weapon];
+  document.getElementById('ammoNum').textContent = w.melee ? '∞' : ammo;
+  document.getElementById('ammoLabel').textContent = w.name;
+  document.getElementById('hudGold').textContent = Math.floor(myPlayer.gold);
+  document.getElementById('hudKills').textContent = myPlayer.kills;
+}
+
+// ============================================
+// 浮动文字
+// ============================================
+function showFloat(x, y, text, color){
+  floatTexts.push({x:x, y:y, text:text, color:color, life:900, vy:-1});
+}// ============================================
+// 射击
+// ============================================
+function shoot(){
+  if(!myPlayer || myPlayer.dead) return;
+  var w = WEAPONS[myPlayer.weapon];
+  if(myPlayer.reloading) return;
+  if(!w.melee && myPlayer.ammo[myPlayer.weapon] <= 0){
+    startReload();
+    return;
+  }
+
+  // 近战
+  if(w.melee){
+    var dx0 = crosshair.x - myPlayer.x;
+    var dy0 = crosshair.y - myPlayer.y;
+    var d0 = Math.hypot(dx0, dy0) || 1;
+    var tx = myPlayer.x + dx0/d0*40;
+    var ty = myPlayer.y + dy0/d0*40;
+    for(var i=0;i<ais.length;i++){
+      var a = ais[i];
+      if(a.dead) continue;
+      if(a.team === myPlayer.team) continue;
+      if(Math.hypot(a.x - tx, a.y - ty) < 40){
+        hitAI(a, w.dmg, myPlayer);
+      }
+    }
+    return;
+  }
+
+  var dx = crosshair.x - myPlayer.x;
+  var dy = crosshair.y - myPlayer.y;
+  var d = Math.hypot(dx, dy);
+  if(d < 0.01) return;
+  dx /= d; dy /= d;
+
+  var ang = Math.atan2(dy, dx) + (Math.random()-0.5) * w.spread * 2;
+  var bullet = {
+    x: myPlayer.x + Math.cos(ang)*(myPlayer.r+4),
+    y: myPlayer.y + Math.sin(ang)*(myPlayer.r+4),
+    vx: Math.cos(ang)*w.speed,
+    vy: Math.sin(ang)*w.speed,
+    owner: myPlayer,
+    ownerTeam: myPlayer.team,
+    ownerIsMe: true,
+    life: w.range,
+    dmg: w.dmg,
+    pierceLeft: w.pierce || 0
+  };
+  bullets.push(bullet);
+  broadcastShoot(bullet);
+
+  myPlayer.ammo[myPlayer.weapon]--;
+  updateAmmoHUD();
+}
+
+function aiShoot(ai){
+  var target = null;
+  var minD = 999999;
+
+  if(myPlayer && !myPlayer.dead && myPlayer.team !== ai.team){
+    var d = Math.hypot(myPlayer.x - ai.x, myPlayer.y - ai.y);
+    if(d < minD){ minD = d; target = myPlayer; }
+  }
+  for(var i=0;i<ais.length;i++){
+    var other = ais[i];
+    if(other === ai) continue;
+    if(other.dead) continue;
+    if(other.team === ai.team) continue;
+    var d2 = Math.hypot(other.x - ai.x, other.y - ai.y);
+    if(d2 < minD){ minD = d2; target = other; }
+  }
+
+  if(!target || minD > 700) return;
+
+  var dx = target.x - ai.x;
+  var dy = target.y - ai.y;
+  var dd = Math.hypot(dx, dy) || 1;
+  var ang = Math.atan2(dy, dx) + (Math.random()-0.5)*0.15;
+
+  bullets.push({
+    x: ai.x + Math.cos(ang)*(ai.r+4),
+    y: ai.y + Math.sin(ang)*(ai.r+4),
+    vx: Math.cos(ang)*14,
+    vy: Math.sin(ang)*14,
+    owner: ai,
+    ownerTeam: ai.team,
+    ownerIsMe: false,
+    life: 60,
+    dmg: 10,
+    pierceLeft: 0
+  });
+}
+
+// ============================================
+// 团队计分（统一入口：杀友军不计分）
+// ============================================
+function addTeamScore(killerTeam, victimTeam){
+  if(gameMode !== 'team') return;
+  if(killerTeam === victimTeam) return;
+  if(killerTeam === 'red') redKills++;
+  else if(killerTeam === 'black') blackKills++;
+  updateTeamScore();
+}
+
+// ============================================
+// 命中 AI
+// ============================================
+function hitAI(ai, dmg, shooter){
+  ai.hp -= dmg;
+  showFloat(ai.x, ai.y - 30, '-' + dmg, '#ef4444');
+  if(ai.hp > 0) return;
+
+  ai.hp = 0;
+  ai.dead = true;
+  ai.respawn = 3000;
+
+  var killerTeam = shooter ? shooter.team : null;
+  var friendly = killerTeam && killerTeam === ai.team;
+
+  if(shooter && shooter === myPlayer){
+    if(friendly){
+      // 杀友军：不给击杀、不给金币、不计分
+      showKill(myPlayer.name, ai.name);
+      broadcastKill(myPlayer.name, ai.name);
+      return;
+    }
+    myPlayer.kills++;
+    myPlayer.gold += 100;
+    updateAmmoHUD();
+    showKill(myPlayer.name, ai.name);
+    broadcastKill(myPlayer.name, ai.name);
+    addTeamScore(myPlayer.team, ai.team);
+  } else {
+    var kname = shooter ? shooter.name : '?';
+    showKill(kname, ai.name);
+    if(shooter) addTeamScore(shooter.team, ai.team);
+  }
+}
+
+// ============================================
+// 命中玩家
+// ============================================
+function hitPlayer(dmg, shooter){
+  if(!myPlayer || myPlayer.dead) return;
+  if(shooter && shooter.team === myPlayer.team) return; // 友军无伤
+  myPlayer.hp -= dmg;
+  showFloat(myPlayer.x, myPlayer.y - 30, '-' + dmg, '#ef4444');
+  if(myPlayer.hp > 0) return;
+  myPlayer.hp = 0;
+  myPlayer.dead = true;
+  myPlayer.respawn = 3000;
+  myPlayer.deaths++;
+  addTeamScore(shooter ? shooter.team : null, myPlayer.team);
+  if(shooter && shooter.name) showKill(shooter.name, myPlayer.name);
+}
+
+// ============================================
+// 更新玩家
+// ============================================
+function updatePlayer(dt){
+  if(!myPlayer) return;
+
+  if(myPlayer.dead){
+    myPlayer.respawn -= dt * TICK;
+    if(myPlayer.respawn <= 0){
+      myPlayer.dead = false;
+      myPlayer.hp = myPlayer.maxHp;
+      var tries = 0;
+      do {
+        myPlayer.x = WORLD_W/2 + (Math.random()-0.5)*600;
+        myPlayer.y = WORLD_H/2 + (Math.random()-0.5)*600;
+        tries++;
+      } while(tries < 50 && hitObstacle(myPlayer.x, myPlayer.y, myPlayer.r));
+    }
+    return;
+  }
+
+  if(myPlayer.energyTime > 0){
+    myPlayer.energyTime -= dt * TICK;
+    myPlayer.speed = myPlayer.baseSpeed * 1.5;
+  } else {
+    myPlayer.speed = myPlayer.baseSpeed;
+  }
+
+  var curW = WEAPONS[myPlayer.weapon];
+  if(curW.slow) myPlayer.speed *= (1 - curW.slow);
+
+  var dx = 0, dy = 0;
+  if(keys['w']) dy -= 1;
+  if(keys['s']) dy += 1;
+  if(keys['a']) dx -= 1;
+  if(keys['d']) dx += 1;
+  if(joyActive){ dx += joyVec.x; dy += joyVec.y; }
+
+  var len = Math.hypot(dx, dy);
+  var moving = false;
+  if(len > 0.01){
+    moving = true;
+    if(len > 1){ dx /= len; dy /= len; }
+    var nx = myPlayer.x + dx * myPlayer.speed * dt;
+    var ny = myPlayer.y + dy * myPlayer.speed * dt;
+    if(nx - myPlayer.r > 0 && nx + myPlayer.r < WORLD_W && !hitObstacle(nx, myPlayer.y, myPlayer.r)){
+      myPlayer.x = nx;
+    }
+    if(ny - myPlayer.r > 0 && ny + myPlayer.r < WORLD_H && !hitObstacle(myPlayer.x, ny, myPlayer.r)){
+      myPlayer.y = ny;
+    }
+  }
+
+  // 站灰块赚钱
+  if(!moving){
+    for(var i=0;i<goldBlocks.length;i++){
+      var g = goldBlocks[i];
+      if(myPlayer.x > g.x && myPlayer.x < g.x+g.w &&
+         myPlayer.y > g.y && myPlayer.y < g.y+g.h){
+        myPlayer.gold += 10 * dt / 60;
+        break;
+      }
+    }
+  }
+
+  // 换弹
+  if(myPlayer.reloading){
+    var w = WEAPONS[myPlayer.weapon];
+    if(performance.now() - myPlayer.reloadStart >= w.reload){
+      finishReload();
+    }
+  }
+
+  // 开火
+  myPlayer.fireCd -= dt * TICK;
+  var firing = mouseDown || mobileFire || keys[' '];
+  if(firing && myPlayer.fireCd <= 0 && !myPlayer.reloading){
+    shoot();
+    myPlayer.fireCd = curW.cd;
+  }
+    }// ============================================
+// AI 行为
+// ============================================
+function updateAI(ai, dt){
+  if(ai.dead){
+    ai.respawn -= dt * TICK;
+    if(ai.respawn <= 0){
+      ai.dead = false;
+      ai.hp = ai.maxHp;
+      ai.retreating = false;
+      var tries = 0;
+      do {
+        var ang = Math.random() * Math.PI * 2;
+        var d = 400 + Math.random() * 600;
+        ai.x = (myPlayer ? myPlayer.x : WORLD_W/2) + Math.cos(ang) * d;
+        ai.y = (myPlayer ? myPlayer.y : WORLD_H/2) + Math.sin(ang) * d;
+        if(ai.x < 100) ai.x = 100;
+        if(ai.y < 100) ai.y = 100;
+        if(ai.x > WORLD_W - 100) ai.x = WORLD_W - 100;
+        if(ai.y > WORLD_H - 100) ai.y = WORLD_H - 100;
+        tries++;
+      } while(tries < 50 && hitObstacle(ai.x, ai.y, ai.r));
+    }
+    return;
+  }
+
+  if(ai.retreating && ai.hp < ai.maxHp){
+    ai.hp += 0.02 * dt * 60 / 60;
+    if(ai.hp > ai.maxHp) ai.hp = ai.maxHp;
+    if(ai.hp >= ai.maxHp * 0.9) ai.retreating = false;
+  }
+
+  var target = null;
+  var minD = 999999;
+  if(myPlayer && !myPlayer.dead && myPlayer.team !== ai.team){
+    var d0 = Math.hypot(myPlayer.x - ai.x, myPlayer.y - ai.y);
+    if(d0 < minD){ minD = d0; target = myPlayer; }
+  }
+  for(var i=0;i<ais.length;i++){
+    var other = ais[i];
+    if(other === ai) continue;
+    if(other.dead) continue;
+    if(other.team === ai.team) continue;
+    var dd = Math.hypot(other.x - ai.x, other.y - ai.y);
+    if(dd < minD){ minD = dd; target = other; }
+  }
+
+  var canSee = !!target && minD < 2000;
+  var dx = target ? target.x - ai.x : 0;
+  var dy = target ? target.y - ai.y : 0;
+  var dist = target ? minD : 0;
+
+  if(ai.hp < ai.maxHp * 0.3 && !ai.retreating) ai.retreating = true;
+
+  var moveX = 0, moveY = 0;
+
+  if(ai.retreating && canSee && dist > 0.01){
+    moveX = -dx / dist;
+    moveY = -dy / dist;
+  } else if(canSee && dist > 0.01){
+    if(dist > 180){
+      moveX = dx / dist;
+      moveY = dy / dist;
+    } else if(dist < 120){
+      moveX = -dx / dist * 0.5;
+      moveY = -dy / dist * 0.5;
+    } else {
+      ai.wander -= dt * TICK;
+      if(ai.wander <= 0){
+        ai.wander = 600 + Math.random() * 800;
+        ai.wanderDir = Math.random() < 0.5 ? 1 : -1;
+      }
+      moveX = -dy / dist * ai.wanderDir * 0.6;
+      moveY = dx / dist * ai.wanderDir * 0.6;
+    }
+  } else {
+    ai.wander -= dt * TICK;
+    if(ai.wander <= 0){
+      ai.wander = 1000 + Math.random() * 2000;
+      ai.wanderDir = Math.random() * Math.PI * 2;
+    }
+    moveX = Math.cos(ai.wanderDir);
+    moveY = Math.sin(ai.wanderDir);
+  }
+
+  var nx = ai.x + moveX * ai.speed * dt;
+  var ny = ai.y + moveY * ai.speed * dt;
+  if(nx - ai.r > 0 && nx + ai.r < WORLD_W && !hitObstacle(nx, ai.y, ai.r)) ai.x = nx;
+  if(ny - ai.r > 0 && ny + ai.r < WORLD_H && !hitObstacle(ai.x, ny, ai.r)) ai.y = ny;
+
+  ai.fireCd -= dt * TICK;
+  if(canSee && !ai.retreating && dist < 700 && ai.fireCd <= 0){
+    aiShoot(ai);
+    ai.fireCd = 700 + Math.random() * 400;
+  }
+}
+
+// ============================================
+// 子弹更新
+// ============================================
+function updateBullets(dt){
+  var newBullets = [];
+  for(var i=0;i<bullets.length;i++){
+    var b = bullets[i];
+    var nx = b.x + b.vx * dt;
+    var ny = b.y + b.vy * dt;
+    b.life -= dt;
+
+    if(nx < 0 || nx > WORLD_W || ny < 0 || ny > WORLD_H) continue;
+
+    var hitWall = false;
+    for(var j=0;j<obstacles.length;j++){
+      var o = obstacles[j];
+      if(nx > o.x && nx < o.x + o.w && ny > o.y && ny < o.y + o.h){
+        if(b.pierceLeft > 0){
+          b.pierceLeft--;
+          b.dmg = Math.round(b.dmg * 0.5);
+        } else {
+          hitWall = true;
+        }
+        break;
+      }
+    }
+    if(hitWall) continue;
+
+    b.x = nx; b.y = ny;
+
+    var consumed = false;
+
+    // 打到玩家（非本人 + 非友军）
+    if(myPlayer && !myPlayer.dead && b.owner !== myPlayer && b.ownerTeam !== myPlayer.team){
+      if(Math.hypot(myPlayer.x - b.x, myPlayer.y - b.y) < myPlayer.r){
+        hitPlayer(b.dmg, b.owner);
+        consumed = true;
+      }
+    }
+
+    // 打到 AI（排除发射者本人 + 友军）
+    if(!consumed){
+      for(var k=0;k<ais.length;k++){
+        var a = ais[k];
+        if(a.dead) continue;
+        if(b.owner === a) continue;
+        if(b.ownerTeam === a.team) continue;
+        if(Math.hypot(a.x - b.x, a.y - b.y) < a.r){
+          hitAI(a, b.dmg, b.owner);
+          consumed = true;
+          break;
+        }
+      }
+    }
+
+    if(consumed) continue;
+    if(b.life > 0) newBullets.push(b);
+  }
+  bullets = newBullets;
+}
+
+// ============================================
+// 渲染
+// ============================================
+function render(){
+  gctx.fillStyle = '#14141c';
+  gctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+  // 网格
+  var GRID = 80;
+  var startX = Math.floor(camera.x / GRID) * GRID;
+  var startY = Math.floor(camera.y / GRID) * GRID;
+  gctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  gctx.lineWidth = 1;
+  for(var x=startX; x<camera.x + VIEW_W; x += GRID){
+    gctx.beginPath();
+    gctx.moveTo(x - camera.x, 0);
+    gctx.lineTo(x - camera.x, VIEW_H);
+    gctx.stroke();
+  }
+  for(var y=startY; y<camera.y + VIEW_H; y += GRID){
+    gctx.beginPath();
+    gctx.moveTo(0, y - camera.y);
+    gctx.lineTo(VIEW_W, y - camera.y);
+    gctx.stroke();
+  }
+
+  // 世界边界
+  gctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  gctx.lineWidth = 3;
+  gctx.strokeRect(-camera.x, -camera.y, WORLD_W, WORLD_H);
+
+  // 灰块
+  for(var i=0;i<goldBlocks.length;i++){
+    var g = goldBlocks[i];
+    var sx = g.x - camera.x, sy = g.y - camera.y;
+    if(sx + g.w < 0 || sx > VIEW_W || sy + g.h < 0 || sy > VIEW_H) continue;
+    gctx.fillStyle = 'rgba(251,191,36,0.15)';
+    gctx.fillRect(sx, sy, g.w, g.h);
+    gctx.strokeStyle = 'rgba(251,191,36,0.6)';
+    gctx.lineWidth = 2;
+    gctx.setLineDash([6, 4]);
+    gctx.strokeRect(sx, sy, g.w, g.h);
+    gctx.setLineDash([]);
+    gctx.fillStyle = '#fbbf24';
+    gctx.font = 'bold 20px system-ui';
+    gctx.textAlign = 'center';
+    gctx.fillText('💰', sx + g.w/2, sy + g.h/2 + 7);
+    gctx.textAlign = 'left';
+  }
+
+  // 障碍物
+  for(var j=0;j<obstacles.length;j++){
+    var o = obstacles[j];
+    var ox = o.x - camera.x, oy = o.y - camera.y;
+    if(ox + o.w < 0 || ox > VIEW_W || oy + o.h < 0 || oy > VIEW_H) continue;
+    gctx.fillStyle = '#0d0d14';
+    gctx.fillRect(ox, oy, o.w, o.h);
+    gctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    gctx.lineWidth = 1;
+    gctx.strokeRect(ox, oy, o.w, o.h);
+  }
+
+  // 商人
+  if(merchant){
+    var mx = merchant.x - camera.x, my = merchant.y - camera.y;
+    if(mx + 60 > 0 && mx - 60 < VIEW_W && my + 60 > 0 && my - 60 < VIEW_H){
+      var near = distanceToMerchant() < merchant.interactRange;
+      if(near){
+        gctx.beginPath();
+        gctx.arc(mx, my, merchant.r + 15, 0, Math.PI*2);
+        gctx.fillStyle = 'rgba(74,222,128,0.15)';
+        gctx.fill();
+      }
+      gctx.fillStyle = '#d97706';
+      gctx.fillRect(mx - merchant.r, my - merchant.r*0.3, merchant.r*2, merchant.r*1.6);
+      gctx.strokeStyle = '#fbbf24';
+      gctx.lineWidth = 2;
+      gctx.strokeRect(mx - merchant.r, my - merchant.r*0.3, merchant.r*2, merchant.r*1.6);
+
+      gctx.fillStyle = '#fbbf24';
+      gctx.beginPath();
+      gctx.arc(mx, my - merchant.r*0.4, merchant.r*0.85, 0, Math.PI*2);
+      gctx.fill();
+      gctx.strokeStyle = '#fef3c7';
+      gctx.stroke();
+
+      gctx.fillStyle = '#fff';
+      gctx.font = 'bold 16px system-ui';
+      gctx.textAlign = 'center';
+      gctx.fillText('💰', mx, my - merchant.r*0.35);
+      gctx.textAlign = 'left';
+
+      gctx.fillStyle = '#fbbf24';
+      gctx.font = 'bold 12px system-ui';
+      gctx.textAlign = 'center';
+      gctx.fillText('商人', mx, my - merchant.r*1.5 - 8);
+      gctx.textAlign = 'left';
+
+      if(near){
+        gctx.fillStyle = '#4ade80';
+        gctx.font = 'bold 11px system-ui';
+        gctx.textAlign = 'center';
+        gctx.fillText(isTouch ? '点我开商店' : '按 F 开商店', mx, my + merchant.r + 20);
+        gctx.textAlign = 'left';
+      }
+    }
+  }
+
+  // 远程玩家
+  drawRemotePlayers();
+
+  // AI
+  for(var k=0;k<ais.length;k++){
+    drawPerson(ais[k]);
+  }
+
+  // 玩家
+  if(myPlayer) drawPerson(myPlayer);
+
+  // 子弹
+  gctx.strokeStyle = '#fbbf24';
+  gctx.lineWidth = 2;
+  gctx.shadowColor = '#fbbf24';
+  gctx.shadowBlur = 6;
+  for(var m=0;m<bullets.length;m++){
+    var b = bullets[m];
+    var bsx = b.x - camera.x, bsy = b.y - camera.y;
+    var bex = bsx - b.vx * 0.8, bey = bsy - b.vy * 0.8;
+    gctx.beginPath();
+    gctx.moveTo(bsx, bsy);
+    gctx.lineTo(bex, bey);
+    gctx.stroke();
+  }
+  gctx.shadowBlur = 0;
+
+  // 准星
+  var chx = crosshair.x - camera.x, chy = crosshair.y - camera.y;
+  gctx.strokeStyle = '#fbbf24';
+  gctx.lineWidth = 2;
+  gctx.beginPath();
+  gctx.arc(chx, chy, 10, 0, Math.PI*2);
+  gctx.stroke();
+  gctx.beginPath();
+  gctx.moveTo(chx-16, chy); gctx.lineTo(chx-4, chy);
+  gctx.moveTo(chx+4, chy); gctx.lineTo(chx+16, chy);
+  gctx.moveTo(chx, chy-16); gctx.lineTo(chx, chy-4);
+  gctx.moveTo(chx, chy+4); gctx.lineTo(chx, chy+16);
+  gctx.stroke();
+
+  // 浮动文字
+  var newFloats = [];
+  for(var f=0;f<floatTexts.length;f++){
+    var ft = floatTexts[f];
+    ft.life -= 16;
+    ft.y += ft.vy;
+    if(ft.life > 0){
+      gctx.globalAlpha = Math.min(1, ft.life / 400);
+      gctx.fillStyle = ft.color;
+      gctx.font = 'bold 14px system-ui';
+      gctx.textAlign = 'center';
+      gctx.fillText(ft.text, ft.x - camera.x, ft.y - camera.y);
+      gctx.textAlign = 'left';
+      gctx.globalAlpha = 1;
+      newFloats.push(ft);
+    }
+  }
+  floatTexts = newFloats;
+}
+
+function drawPerson(t){
+  if(t.dead) return;
+
+  var sx = t.x - camera.x;
+  var sy = t.y - camera.y;
+  if(sx + 40 < 0 || sx - 40 > VIEW_W || sy + 40 < 0 || sy - 40 > VIEW_H) return;
+
+  var isMe = t === myPlayer;
+  var headColor, bodyColor, strokeColor;
+
+  if(isMe){
+    headColor = '#ef4444';
+    bodyColor = '#dc2626';
+    strokeColor = '#fca5a5';
+  } else if(t.colors){
+    headColor = t.colors.head;
+    bodyColor = t.colors.body;
+    strokeColor = t.colors.stroke;
+  } else {
+    headColor = '#ef4444';
+    bodyColor = '#dc2626';
+    strokeColor = '#fca5a5';
+  }
+
+  gctx.fillStyle = bodyColor;
+  gctx.fillRect(sx - t.r, sy - t.r*0.3, t.r*2, t.r*1.6);
+  gctx.strokeStyle = strokeColor;
+  gctx.lineWidth = 1;
+  gctx.strokeRect(sx - t.r, sy - t.r*0.3, t.r*2, t.r*1.6);
+
+  gctx.fillStyle = headColor;
+  gctx.beginPath();
+  gctx.arc(sx, sy - t.r*0.4, t.r*0.85, 0, Math.PI*2);
+  gctx.fill();
+  gctx.strokeStyle = strokeColor;
+  gctx.stroke();
+
+  var aimX = isMe ? crosshair.x : (t.aimX || t.x);
+  var aimY = isMe ? crosshair.y : (t.aimY || t.y);
+  var ax = aimX - t.x, ay = aimY - t.y;
+  var al = Math.hypot(ax, ay);
+  if(al > 0.01){
+    ax /= al; ay /= al;
+    gctx.strokeStyle = isMe ? '#fca5a5' : '#666';
+    gctx.lineWidth = 3;
+    gctx.beginPath();
+    gctx.moveTo(sx, sy);
+    gctx.lineTo(sx + ax*(t.r+10), sy + ay*(t.r+10));
+    gctx.stroke();
+  }
+
+  var barW = 44, barH = 4;
+  var bx = sx - barW/2, by = sy - t.r*1.5 - 14;
+  gctx.fillStyle = 'rgba(0,0,0,0.6)';
+  gctx.fillRect(bx, by, barW, barH);
+  var hpRatio = t.hp / t.maxHp;
+  gctx.fillStyle = hpRatio > 0.5 ? '#4ade80' : hpRatio > 0.25 ? '#facc15' : '#ef4444';
+  gctx.fillRect(bx, by, barW * hpRatio, barH);
+
+  gctx.fillStyle = isMe ? '#fca5a5' : '#aaa';
+  gctx.font = '11px system-ui';
+  gctx.textAlign = 'center';
+  gctx.fillText(t.name, sx, by - 4);
+  gctx.textAlign = 'left';
+}
+
+// ============================================
+// 团队比分 / 计时器
+// ============================================
+function updateTeamScore(){
+  var r = document.getElementById('teamScoreRed');
+  var b = document.getElementById('teamScoreBlack');
+  if(r) r.textContent = redKills;
+  if(b) b.textContent = blackKills;
+}
+
+function updateTeamTimer(){
+  var el = document.getElementById('teamTimer');
+  if(!el) return;
+  var min = Math.floor(gameTime / 60);
+  var sec = gameTime % 60;
+  el.textContent = (min<10?'0':'') + min + ':' + (sec<10?'0':'') + sec;
+}// ============================================
+// 网络同步（所有人一个世界）
+// ============================================
+var netChannel = null;
+var remotePlayers = {};
+var myNetKey = null;
+var lastNetBroadcast = 0;
+
+function connectNet(){
+  if(!sb) return;
+  if(!myNetKey) myNetKey = 'p' + Math.random().toString(36).slice(2, 10);
+
+  var chanName = (gameMode === 'team') ? 'team_world' : 'solo_world';
+  netChannel = sb.channel(chanName, {
+    config: { presence: { key: myNetKey } }
+  });
+
+  netChannel.on('broadcast', { event: 'pos' }, function(payload){
+    var d = payload.payload;
+    if(!d || d.from === myNetKey) return;
+    if(!remotePlayers[d.from]) remotePlayers[d.from] = {};
+    var rp = remotePlayers[d.from];
+    rp.x = d.x; rp.y = d.y; rp.hp = d.hp; rp.name = d.name;
+    rp.dead = d.dead; rp.angle = d.angle || 0;
+    rp.team = d.team || 'red';
+    rp.lastSeen = Date.now();
+  });
+
+  netChannel.on('broadcast', { event: 'shoot' }, function(payload){
+    var d = payload.payload;
+    if(!d || d.from === myNetKey) return;
+    bullets.push({
+      x: d.x, y: d.y, vx: d.vx, vy: d.vy,
+      owner: {name:d.name, team:d.team, isMe:false, isRemote:true},
+      ownerTeam: d.team,
+      ownerIsMe: false,
+      life: d.life || 60,
+      dmg: d.dmg || 15,
+      pierceLeft: d.pierce || 0
+    });
+  });
+
+  netChannel.on('broadcast', { event: 'kill' }, function(payload){
+    var d = payload.payload;
+    if(!d || d.from === myNetKey) return;
+    showKill(d.killer, d.victim);
+  });
+
+  netChannel.on('presence', { event: 'sync' }, function(){
+    var state = netChannel.presenceState();
+    for(var k in remotePlayers){
+      if(!state[k]) delete remotePlayers[k];
+    }
+    if(gameRunning) rebalanceAI();
+  });
+
+  netChannel.subscribe(function(status){
+    if(status === 'SUBSCRIBED'){
+      netChannel.track({name: myPlayer ? myPlayer.name : '游客', ts: Date.now()});
+    }
+  });
+}
+
+function broadcastPos(){
+  if(!netChannel || !myPlayer) return;
+  netChannel.send({
+    type: 'broadcast',
+    event: 'pos',
+    payload: {
+      from: myNetKey,
+      x: myPlayer.x, y: myPlayer.y,
+      hp: myPlayer.hp, name: myPlayer.name,
+      dead: myPlayer.dead, angle: 0,
+      team: myPlayer.team
+    }
+  });
+}
+
+function broadcastShoot(b){
+  if(!netChannel) return;
+  netChannel.send({
+    type: 'broadcast',
+    event: 'shoot',
+    payload: {
+      from: myNetKey,
+      x: b.x, y: b.y, vx: b.vx, vy: b.vy,
+      name: myPlayer ? myPlayer.name : '?',
+      team: myPlayer ? myPlayer.team : 'red',
+      dmg: b.dmg, life: b.life, pierce: b.pierceLeft || 0
+    }
+  });
+}
+
+function broadcastKill(killer, victim){
+  if(!netChannel) return;
+  netChannel.send({
+    type: 'broadcast',
+    event: 'kill',
+    payload: { from: myNetKey, killer: killer, victim: victim }
+  });
+}
+
+function disconnectNet(){
+  if(netChannel){
+    try{ netChannel.unsubscribe(); }catch(e){}
+    netChannel = null;
+  }
+  remotePlayers = {};
+  myNetKey = null;
+}
+
+function drawRemotePlayers(){
+  for(var k in remotePlayers){
+    var rp = remotePlayers[k];
+    if(!rp || rp.dead) continue;
+    if(rp.lastSeen && Date.now() - rp.lastSeen > 3000) continue;
+
+    var sx = rp.x - camera.x;
+    var sy = rp.y - camera.y;
+    if(sx + 30 < 0 || sx - 30 > VIEW_W || sy + 30 < 0 || sy - 30 > VIEW_H) continue;
+
+    var isTeammate = myPlayer && rp.team === myPlayer.team;
+    var headColor = isTeammate ? '#ef4444' : '#0a0a0a';
+    var bodyColor = isTeammate ? '#dc2626' : '#1a1a1a';
+
+    gctx.fillStyle = bodyColor;
+    gctx.fillRect(sx-14, sy-4, 28, 22);
+    gctx.strokeStyle = '#fff';
+    gctx.lineWidth = 1;
+    gctx.strokeRect(sx-14, sy-4, 28, 22);
+
+    gctx.fillStyle = headColor;
+    gctx.beginPath();
+    gctx.arc(sx, sy-6, 12, 0, Math.PI*2);
+    gctx.fill();
+    gctx.stroke();
+
+    gctx.fillStyle = '#fff';
+    gctx.font = 'bold 11px system-ui';
+    gctx.textAlign = 'center';
+    gctx.fillText(rp.name || '?', sx, sy - 26);
+    gctx.textAlign = 'left';
+  }
+}
+
+// ============================================
+// AI 数量平衡
+// ============================================
+function calcAICount(){
+  var realCount = 0;
+  for(var k in remotePlayers){
+    var rp = remotePlayers[k];
+    if(rp && rp.lastSeen && Date.now() - rp.lastSeen < 5000) realCount++;
+  }
+  realCount++;
+
+  if(gameMode === 'solo'){
+    return Math.max(0, 10 - realCount);
+  } else if(gameMode === 'team'){
+    var total = teamSize * 2;
+    return Math.max(0, total - realCount);
+  }
+  return 0;
+}
+
+function rebalanceAI(){
+  var need = calcAICount();
+  if(ais.length < need){
+    var toAdd = need - ais.length;
+    for(var t=0;t<toAdd;t++){
+      var team;
+      if(gameMode === 'solo'){
+        team = (Math.random()<0.5) ? 'red' : 'black';
+      } else {
+        team = 'black';
+      }
+      ais.push(createAI(team, team === (myPlayer ? myPlayer.team : 'red')));
+    }
+  }
+  else if(ais.length > need){
+    ais.splice(need);
+  }
+}
+
+// ============================================
+// 主循环
+// ============================================
+function gameLoop(ts){
+  if(!gameRunning) return;
+  if(!lastTime) lastTime = ts;
+  var dt = Math.min((ts - lastTime) / TICK, 2);
+  lastTime = ts;
+
+  if(!gameOver){
+    updatePlayer(dt);
+    for(var i=0;i<ais.length;i++) updateAI(ais[i], dt);
+    updateBullets(dt);
+    updateCamera();
+
+    if(performance.now() - lastNetBroadcast > 100){
+      lastNetBroadcast = performance.now();
+      broadcastPos();
+    }
+  }
+
+  render();
+  requestAnimationFrame(gameLoop);
+}
+
+// ============================================
+// 开始游戏
+// ============================================
+window.startGame = function(mode, size){
+  gameMode = mode;
+  teamSize = size;
+  gameOver = false;
+  gameRunning = true;
+  gameTime = 0;
+  bullets = [];
+  floatTexts = [];
+  remotePlayers = {};
+  redKills = 0;
+  blackKills = 0;
+  aiSeq = 0;
+  lastTime = 0;
+  lastNetBroadcast = 0;
+
+  WEAPONS.rifle._bought = false;
+  WEAPONS.sniper._bought = false;
+  WEAPONS.mg._bought = false;
+  WEAPONS.knife._bought = false;
+
+  buildObstacles();
+  placeMerchant();
+  spawnGoldBlocks();
+
+  myPlayer = createPlayer();
+  crosshair.x = myPlayer.x;
+  crosshair.y = myPlayer.y;
+
+  ais = [];
+  var initAICount;
+  if(mode === 'solo'){
+    initAICount = 9;
+  } else {
+    initAICount = size * 2 - 1;
+  }
+  for(var i=0;i<initAICount;i++){
+    var team;
+    if(mode === 'solo'){
+      team = (i % 2 === 0) ? 'red' : 'black';
+    } else {
+      team = (i < size-1) ? 'red' : 'black';
+    }
+    ais.push(createAI(team, team === myPlayer.team));
+  }
+
+  document.getElementById('gameLayer').classList.add('show');
+  document.getElementById('exitBtn').classList.add('show');
+
+  if(isTouch){
+    document.getElementById('joy').classList.add('show');
+    document.getElementById('fireBtn').classList.add('show');
+    document.getElementById('reloadBtn').classList.add('show');
+    document.getElementById('switchBtn').classList.add('show');
+  }
+
+  if(mode === 'team'){
+    document.getElementById('teamScore').classList.add('show');
+    updateTeamScore();
+    gameTime = 10 * 60;
+    updateTeamTimer();    if(matchTimerInterval) clearInterval(matchTimerInterval);
+    matchTimerInterval = setInterval(function(){
+      gameTime--;
+      updateTeamTimer();
+      if(gameTime <= 0){
+        clearInterval(matchTimerInterval);
+        matchTimerInterval = null;
+        endGame();
+      }
+    }, 1000);
+  } else {
+    document.getElementById('teamScore').classList.remove('show');
+  }
+
+  resizeGame();
+  updateAmmoHUD();
+  loadWorldChat();
+  connectNet();
+
+  requestAnimationFrame(gameLoop);
+};
+
+// ============================================
+// 结束 / 退出
+// ============================================
+function endGame(){
+  gameOver = true;
+  gameRunning = false;
+  loopRunning = false;
+
+  var text = '';
+  if(gameMode === 'team'){
+    if(redKills > blackKills) text = '🏆 我方获胜！';
+    else if(redKills < blackKills) text = '💀 敌方获胜';
+    else text = '平局';
+  } else {
+    text = '游戏结束';
+  }
+  document.getElementById('endText').textContent = text;
+  document.getElementById('endOverlay').classList.add('show');
+}
+
+window.exitGame = function(){
+  gameRunning = false;
+  gameOver = true;
+  loopRunning = false;
+  if(matchTimerInterval){ clearInterval(matchTimerInterval); matchTimerInterval = null; }
+  disconnectNet();
+
+  if(worldChatChannel){
+    try{ worldChatChannel.unsubscribe(); }catch(e){}
+    worldChatChannel = null;
+  }
+
+  document.getElementById('gameLayer').classList.remove('show');
+  document.getElementById('exitBtn').classList.remove('show');
+  document.getElementById('joy').classList.remove('show');
+  document.getElementById('fireBtn').classList.remove('show');
+  document.getElementById('reloadBtn').classList.remove('show');
+  document.getElementById('switchBtn').classList.remove('show');
+  document.getElementById('teamScore').classList.remove('show');
+  document.getElementById('endOverlay').classList.remove('show');
+  document.getElementById('shopPanel').classList.remove('show');
+
+  switchPage('home');
+};
+
+// ============================================
+// 事件绑定（收尾）
+// ============================================
+document.getElementById('endBack').addEventListener('click', exitGame);
+document.getElementById('worldChatSend').addEventListener('click', sendWorldChat);
+document.getElementById('worldChatInput').addEventListener('keydown', function(e){
+  if(e.key==='Enter') sendWorldChat();
+});
+
+renderUserTag();
+
+})();
+</script>
+</body>
+</html>
