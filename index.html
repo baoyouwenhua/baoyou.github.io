@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>包游战场</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;background:#05060a;color:#e0e0e0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;user-select:none;-webkit-user-select:none}
+#bg{position:fixed;inset:0;z-index:0;background:radial-gradient(ellipse at 50% 0%,rgba(74,222,128,0.12) 0%,transparent 50%),radial-gradient(ellipse at 50% 100%,rgba(34,197,94,0.06) 0%,transparent 50%),#05060a}
+#bg::after{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(74,222,128,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(74,222,128,0.04) 1px,transparent 1px);background-size:60px 60px;mask-image:radial-gradient(ellipse at center,black 30%,transparent 75%);-webkit-mask-image:radial-gradient(ellipse at center,black 30%,transparent 75%)}
+#navbar{position:fixed;top:0;left:0;right:0;height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 32px;background:rgba(5,6,10,0.6);backdrop-filter:blur(10px);border-bottom:1px solid rgba(74,222,128,0.1);z-index:100}
+#logo{font-size:1.05rem;font-weight:900;letter-spacing:3px;color:#4ade80;text-shadow:0 0 20px rgba(74,222,128,0.6);cursor:pointer}
+#navTabs{display:flex;gap:6px}
+.nav-tab{padding:8px 20px;border-radius:8px;border:none;background:transparent;color:#888;font-family:inherit;font-size:0.9rem;cursor:pointer;transition:all 0.2s;position:relative}
+.nav-tab:hover{color:#ccc}
+.nav-tab.active{color:#4ade80;background:rgba(74,222,128,0.08)}
+.nav-tab.active::after{content:'';position:absolute;bottom:-1px;left:20%;right:20%;height:2px;background:#4ade80;box-shadow:0 0 12px #4ade80;border-radius:1px}
+#userArea{display:flex;align-items:center;gap:12px}
+#loginBtn{padding:8px 20px;border-radius:8px;border:1px solid rgba(74,222,128,0.4);background:rgba(74,222,128,0.08);color:#4ade80;font-family:inherit;font-size:0.9rem;cursor:pointer}
+#userTag{display:none;align-items:center;gap:10px;padding:5px 14px 5px 5px;background:rgba(0,0,0,0.5);border:1px solid rgba(74,222,128,0.4);border-radius:24px}
+#userTag.show{display:flex}
+#userAvatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#4ade80,#22c55e);display:flex;align-items:center;justify-content:center;color:#05060a;font-weight:900;font-size:0.85rem}
+#userName{font-size:0.85rem;color:#e0e0e0}
+#logoutBtn{color:#555;font-size:0.75rem;cursor:pointer;margin-left:4px}
+#logoutBtn:hover{color:#ef4444}
+.page{position:fixed;top:60px;left:0;right:0;bottom:0;display:none;overflow-y:auto;z-index:10}
+.page.active{display:block}
+#pageHome{flex-direction:column;align-items:center;justify-content:center}
+#pageHome.active{display:flex}
+#gameTitle{font-size:5rem;font-weight:900;letter-spacing:14px;text-align:center;color:transparent;background:linear-gradient(180deg,#4ade80 0%,#22c55e 60%,#15803d 100%);-webkit-background-clip:text;background-clip:text;filter:drop-shadow(0 0 40px rgba(74,222,128,0.5));animation:titlePulse 3s ease-in-out infinite;line-height:1}
+@keyframes titlePulse{0%,100%{filter:drop-shadow(0 0 30px rgba(74,222,128,0.4))}50%{filter:drop-shadow(0 0 60px rgba(74,222,128,0.8))}}
+#gameSubtitle{color:#555;font-size:0.75rem;letter-spacing:8px;margin-top:16px;margin-bottom:60px}
+#startBtn{padding:22px 80px;font-size:1.3rem;font-weight:900;letter-spacing:4px;font-family:inherit;color:#05060a;background:linear-gradient(135deg,#4ade80,#22c55e);border:none;border-radius:14px;cursor:pointer;transition:all 0.25s;box-shadow:0 0 40px rgba(74,222,128,0.4);position:relative;overflow:hidden}
+#startBtn:hover{transform:translateY(-3px);box-shadow:0 0 70px rgba(74,222,128,0.7)}
+#homeHint{margin-top:30px;color:#333;font-size:0.75rem;letter-spacing:2px}
+.page-inner{padding:60px 40px;max-width:900px;margin:0 auto}
+.page-title{font-size:1.8rem;font-weight:900;color:#4ade80;letter-spacing:3px;margin-bottom:8px}
+.page-sub{color:#555;font-size:0.85rem;margin-bottom:40px}
+.log-entry{padding:20px;background:rgba(255,255,255,0.02);border-left:3px solid rgba(74,222,128,0.4);border-radius:8px;margin-bottom:16px}
+.log-entry .version{color:#4ade80;font-weight:bold;font-size:1rem;margin-bottom:4px}
+.log-entry .date{color:#555;font-size:0.75rem;margin-bottom:10px}
+.log-entry ul{list-style:none;padding-left:0}
+.log-entry li{color:#aaa;font-size:0.88rem;padding:4px 0 4px 18px;position:relative}
+.log-entry li::before{content:'▸';position:absolute;left:0;color:#4ade80}
+.add-friend-row{display:flex;gap:8px;margin-bottom:20px}
+.add-friend-row input{flex:1;padding:11px 14px;border:1px solid rgba(74,222,128,.3);border-radius:10px;background:rgba(0,0,0,.4);color:#e0e0e0;font-family:inherit;font-size:14px;outline:none}
+.add-friend-row input:focus{border-color:#4ade80}
+.add-friend-row button{padding:11px 22px;background:linear-gradient(135deg,#4ade80,#22c55e);color:#05060a;border:none;border-radius:10px;font-family:inherit;font-weight:900;font-size:14px;cursor:pointer}
+.friend-sec{margin-bottom:24px}
+.friend-sec h3{color:#4ade80;font-size:1rem;margin-bottom:10px;letter-spacing:1px}
+.friend-item{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:rgba(255,255,255,.03);border:1px solid rgba(74,222,128,.15);border-radius:12px;margin-bottom:8px;cursor:pointer;transition:.2s}
+.friend-item:hover{border-color:#4ade80;background:rgba(74,222,128,.06)}
+.friend-item .fname{font-weight:600;font-size:15px;color:#e0e0e0}
+.friend-item .flast{font-size:12px;color:#666;margin-top:2px}
+.friend-item .fright{display:flex;align-items:center;gap:8px}
+.unread-num{background:#ef4444;color:#fff;font-size:11px;padding:1px 7px;border-radius:10px;font-weight:700}
+.req-actions{display:flex;gap:6px}
+.req-actions button{padding:5px 14px;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.req-accept{background:#4ade80;color:#05060a}
+.req-reject{background:rgba(255,255,255,.08);color:#888}
+.spinner{width:36px;height:36px;border:3px solid rgba(74,222,128,.2);border-top-color:#4ade80;border-radius:50%;animation:spin .8s linear infinite;margin:40px auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{text-align:center;color:#555;font-size:13px;padding-bottom:20px}
+.empty-hint{text-align:center;color:#444;font-size:13px;padding:20px 0}
+.chat-wrap{max-width:700px;margin:0 auto;padding:20px;display:flex;flex-direction:column;height:calc(100vh - 60px)}
+.chat-header{display:flex;align-items:center;gap:12px;padding-bottom:14px;border-bottom:1px solid rgba(74,222,128,.15);margin-bottom:14px}
+.chat-back{background:rgba(255,255,255,.06);color:#ccc;border:none;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.chat-back:hover{background:rgba(255,255,255,.12)}
+.chat-title{font-size:16px;font-weight:700;color:#4ade80;flex:1}
+.chat-report-btn{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.4);padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.chat-box{flex:1;padding:14px;background:rgba(255,255,255,.02);border-radius:14px;overflow-y:auto;margin-bottom:12px;min-height:200px}
+.chat-msg{display:flex;margin-bottom:12px}
+.chat-msg.me{justify-content:flex-end}
+.chat-msg.other{justify-content:flex-start}
+.chat-bubble{max-width:72%;padding:10px 14px;border-radius:10px;font-size:14px;line-height:1.5;word-break:break-word}
+.chat-msg.me .chat-bubble{background:#4ade80;color:#05060a}
+.chat-msg.other .chat-bubble{background:rgba(255,255,255,.08);color:#e0e0e0}
+.chat-bubble.pending{background:rgba(251,191,36,.3)!important;color:#fbbf24!important}
+.chat-bubble.blocked{background:rgba(239,68,68,.3)!important;color:#f87171!important;text-decoration:line-through}
+.chat-bubble .bstatus{font-size:11px;margin-left:6px;opacity:.8}
+.chat-input-bar{display:flex;gap:8px}
+.chat-input-bar input{flex:1;padding:11px 14px;border:1px solid rgba(74,222,128,.3);border-radius:10px;background:rgba(0,0,0,.4);color:#e0e0e0;font-family:inherit;font-size:14px;outline:none}
+.chat-input-bar input:focus{border-color:#4ade80}
+.chat-input-bar button{padding:11px 24px;background:linear-gradient(135deg,#4ade80,#22c55e);color:#05060a;border:none;border-radius:10px;font-weight:900;font-size:14px;cursor:pointer;font-family:inherit}
+.ban-banner{flex:1;padding:11px 14px;background:rgba(239,68,68,.2);color:#f87171;border-radius:10px;font-size:13px;text-align:center;border:1px solid rgba(239,68,68,.4)}
+.admin-tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.admin-tabs button{padding:9px 20px;background:rgba(255,255,255,.04);border:1px solid rgba(74,222,128,.15);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;color:#888;font-family:inherit}
+.admin-tabs button.active{background:#4ade80;color:#05060a;border-color:#4ade80}
+.admin-sec{display:none}
+.admin-sec.active{display:block}
+.user-card{background:rgba(255,255,255,.03);border:1px solid rgba(74,222,128,.15);border-radius:12px;padding:14px 16px;margin-bottom:10px}
+.user-card .uname{font-weight:700;font-size:15px;color:#e0e0e0}
+.user-card .umeta{font-size:12px;color:#666;margin-top:2px}
+.user-card .uactions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+.user-card .uactions button{padding:5px 14px;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.btn-red{background:#ef4444;color:#fff}
+.btn-green{background:#4ade80;color:#05060a}
+.badge-ban{display:inline-block;font-size:10px;padding:1px 7px;border-radius:8px;background:#ef4444;color:#fff;margin-left:6px}
+.badge-mute{display:inline-block;font-size:10px;padding:1px 7px;border-radius:8px;background:#f59e0b;color:#fff;margin-left:6px}
+.modal-ov{position:fixed;inset:0;background:rgba(5,6,10,.88);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:400}
+.modal-ov.show{display:flex}
+.modal-card{width:360px;max-width:90vw;padding:28px;background:rgba(10,12,18,.98);border:1px solid rgba(74,222,128,.3);border-radius:16px;box-shadow:0 0 60px rgba(74,222,128,0.15)}
+.modal-card h3{color:#4ade80;font-size:1.1rem;letter-spacing:2px;margin-bottom:16px;text-align:center}
+.modal-card input,.modal-card textarea,.modal-card select{width:100%;padding:11px 14px;margin-bottom:10px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(0,0,0,.5);color:#e0e0e0;font-family:inherit;font-size:14px;outline:none}
+.modal-card input:focus,.modal-card textarea:focus{border-color:#4ade80}
+.modal-card textarea{min-height:80px;resize:vertical}
+.modal-card .btn-row{display:flex;gap:10px;margin-top:14px}
+.modal-card .btn-row button{flex:1;padding:11px;border-radius:8px;border:none;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.btn-primary{background:#4ade80;color:#05060a}
+.btn-ghost{background:transparent;border:1px solid rgba(255,255,255,.15);color:#888}
+.modal-card .target{color:#7ee7ff;font-weight:600;font-size:14px;text-align:center;margin-bottom:14px}
+.modal-card .hint{text-align:center;color:#555;font-size:12px;margin-top:10px}
+.tab-toggle{display:flex;gap:8px;margin-bottom:16px}
+.tab-toggle button{flex:1;padding:9px;border:none;border-radius:8px;background:rgba(255,255,255,.06);color:#888;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px}
+.tab-toggle button.active{background:#4ade80;color:#05060a}
+.mode-options{display:flex;gap:16px;margin-bottom:20px}
+.mode-card{width:180px;padding:30px 20px;background:rgba(255,255,255,.02);border:2px solid rgba(74,222,128,.2);border-radius:16px;cursor:pointer;transition:all 0.25s;font-family:inherit;color:#e0e0e0}
+.mode-card:hover{border-color:#4ade80;background:rgba(74,222,128,.08);transform:translateY(-4px)}
+.mode-card .mode-icon{font-size:2.2rem;margin-bottom:12px}
+.mode-card .mode-name{font-size:1rem;font-weight:bold;letter-spacing:2px;margin-bottom:6px}
+.mode-card .mode-desc{font-size:0.75rem;color:#666;line-height:1.5}
+</style>
+</head><body>
+
+<div id="bg"></div>
+
+<nav id="navbar">
+<div id="logo">包游战场</div>
+<div id="navTabs">
+<button class="nav-tab active" data-page="home">首页</button>
+<button class="nav-tab" data-page="log">更新日志</button>
+<button class="nav-tab" data-page="friends">好友</button>
+<button class="nav-tab" data-page="admin" id="adminNavBtn" style="display:none;">管理</button>
+</div>
+<div id="userArea">
+<button id="loginBtn">登录</button>
+<div id="userTag">
+<div id="userAvatar">?</div>
+<div id="userName">游客</div>
+<div id="logoutBtn">退出</div>
+</div>
+</div>
+</nav>
+
+<div class="page active" id="pageHome">
+<div id="gameTitle">包游战场</div>
+<div id="gameSubtitle">BAOYOU BATTLEFIELD</div>
+<button id="startBtn">开始游戏</button>
+<div id="homeHint">点击上方"开始游戏"选择模式</div>
+</div>
+
+<div class="page" id="pageLog">
+<div class="page-inner">
+<div class="page-title">更新日志</div>
+<div class="page-sub">CHANGELOG</div>
+<div class="log-entry">
+<div class="version">v0.1.0</div>
+<div class="date">首个版本</div>
+<ul>
+<li>大堂界面 + 导航栏</li>
+<li>独立登录 / 注册系统</li>
+<li>好友系统 + 私信</li>
+<li>举报 + 消息审核 + 惩罚管理</li>
+</ul>
+</div>
+</div>
+</div>
+
+<div class="page" id="pageFriends">
+<div class="page-inner">
+<div class="page-title">好友</div>
+<div class="page-sub">FRIENDS</div>
+<div id="friendsLoading"><div class="spinner"></div><div class="loading-text">正在加载…</div></div>
+<div id="friendsContent" style="display:none;">
+<div class="add-friend-row">
+<input id="addFriendInput" placeholder="输入用户名，加为好友" maxlength="16">
+<button onclick="addFriend()">➕ 添加</button>
+</div>
+<div id="friendRequestsBox" class="friend-sec" style="display:none;">
+<h3>📨 待处理请求</h3>
+<div id="friendRequestsList"></div>
+</div>
+<div class="friend-sec">
+<h3>👥 我的好友</h3>
+<div id="friendsList"></div>
+</div>
+<div class="friend-sec">
+<h3>💬 会话</h3>
+<div id="chatList"></div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="page" id="pageChat">
+<div class="chat-wrap">
+<div class="chat-header">
+<button class="chat-back" onclick="switchPage('friends')">← 返回</button>
+<div class="chat-title" id="chatTitle">—</div>
+<button class="chat-report-btn" onclick="openReportCurrentUser()">🚩 举报</button>
+</div>
+<div class="chat-box" id="chatBox"></div>
+<div class="chat-input-bar" id="chatInputBar"></div>
+</div>
+</div>
+
+<div class="page" id="pageAdmin">
+<div class="page-inner">
+<div class="page-title">管理后台</div>
+<div class="page-sub">仅管理员黄凯可用</div>
+<div class="admin-tabs">
+<button class="active" data-admin-tab="users">👥 用户</button>
+<button data-admin-tab="reports">🚩 举报</button>
+<button data-admin-tab="review">🔍 审核</button>
+</div>
+<div class="admin-sec active" id="adminSecUsers"></div>
+<div class="admin-sec" id="adminSecReports"></div>
+<div class="admin-sec" id="adminSecReview"></div>
+</div>
+</div>
+
+<div class="modal-ov" id="loginModal">
+<div class="modal-card">
+<div class="tab-toggle">
+<button id="tabLoginBtn" class="active">登录</button>
+<button id="tabRegBtn">注册</button>
+</div>
+<input type="text" id="loginUser" placeholder="用户名" maxlength="16" autocomplete="off">
+<input type="password" id="loginPass" placeholder="密码" maxlength="32" autocomplete="new-password">
+<div class="btn-row">
+<button class="btn-ghost" id="loginCancel">取消</button>
+<button class="btn-primary" id="loginSubmit">登录</button>
+</div>
+<div class="hint">独立账号 · 与官网分开</div>
+</div>
+</div>
+
+<div class="modal-ov" id="modeModal">
+<div class="modal-card">
+<h3>选择模式</h3>
+<div class="mode-options">
+<button class="mode-card" id="modeSolo">
+<div class="mode-icon">👤</div>
+<div class="mode-name">单人</div>
+<div class="mode-desc">独自战斗</div>
+</button>
+<button class="mode-card" id="modeTeam">
+<div class="mode-icon">👥</div>
+<div class="mode-name">团队</div>
+<div class="mode-desc">10 分钟一局</div>
+</button>
+</div>
+<div class="btn-row"><button class="btn-ghost" id="cancelMode" style="width:100%">取消</button></div>
+</div>
+</div>
+
+<div class="modal-ov" id="reportOverlay">
+<div class="modal-card">
+<h3>🚩 举报</h3>
+<div class="target" id="reportTarget">——</div>
+<textarea id="reportReason" placeholder="请描述举报原因..."></textarea>
+<div class="btn-row">
+<button class="btn-ghost" onclick="closeReport()">取消</button>
+<button class="btn-primary" onclick="submitReport()">提交</button>
+</div>
+</div>
+</div>
+
+<div class="modal-ov" id="punishOverlay">
+<div class="modal-card">
+<h3>🔨 惩罚</h3>
+<div class="target" id="punishTarget">——</div>
+<select id="punishType">
+<option value="chat">禁私信</option>
+<option value="all">全站禁言</option>
+</select>
+<select id="punishDuration">
+<option value="1">1 小时</option>
+<option value="24">1 天</option>
+<option value="72">3 天</option>
+<option value="168">7 天</option>
+<option value="720">30 天</option>
+<option value="0">永久</option>
+</select>
+<div class="btn-row">
+<button class="btn-ghost" onclick="closePunish()">取消</button>
+<button class="btn-primary" style="background:#ef4444;color:#fff" onclick="doPunish()">确认封禁</button>
+</div>
+</div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+const SUPABASE_URL = "https://gklxkyznfegslkgefzas.supabase.co";
+const SUPABASE_KEY = "sb_publishable_1DNkeFcclVSVM19I6Q2AsA__DAIVlfg";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const ADMIN_NAME = "黄凯";
+const ADMIN_PWD = "11080-hk";
+const GAME_LINK_SOLO = "#";
+const GAME_LINK_TEAM = "#";
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function fmt(t){return t?new Date(t).toLocaleString("zh-CN",{hour12:false}).slice(0,16):"";}
+function getCurrentUser(){try{return JSON.parse(localStorage.getItem('byBattleUser')||'null');}catch(e){return null;}}
+function setCurrentUser(u){localStorage.setItem('byBattleUser',JSON.stringify(u));}
+function clearCurrentUser(){localStorage.removeItem('byBattleUser');}
+
+const navTabs = document.querySelectorAll('.nav-tab[data-page]');
+const pages = {home:document.getElementById('pageHome'),log:document.getElementById('pageLog'),friends:document.getElementById('pageFriends'),chat:document.getElementById('pageChat'),admin:document.getElementById('pageAdmin')};
+
+window.switchPage = function(name){
+  navTabs.forEach(t=>t.classList.toggle('active',t.dataset.page===name));
+  for(const k in pages) if(pages[k]) pages[k].classList.toggle('active',k===name);
+  if(name==='friends') loadFriendsPage();
+  if(name==='admin') loadAdminUsers();
+  if(name==='chat') renderChatPage();
+};
+navTabs.forEach(t=>t.addEventListener('click',()=>switchPage(t.dataset.page)));
+document.getElementById('logo').addEventListener('click',()=>switchPage('home'));
+
+const modeModal = document.getElementById('modeModal');
+document.getElementById('startBtn').addEventListener('click',()=>modeModal.classList.add('show'));
+document.getElementById('cancelMode').addEventListener('click',()=>modeModal.classList.remove('show'));
+modeModal.addEventListener('click',e=>{if(e.target===modeModal)modeModal.classList.remove('show');});
+document.getElementById('modeSolo').addEventListener('click',()=>{window.location.href=GAME_LINK_SOLO;});
+document.getElementById('modeTeam').addEventListener('click',()=>{window.location.href=GAME_LINK_TEAM;});
+
+const loginModal = document.getElementById('loginModal');
+const loginBtn = document.getElementById('loginBtn');
+const userTag = document.getElementById('userTag');
+const adminNavBtn = document.getElementById('adminNavBtn');
+let authMode = 'login';
+
+function showLoginModal(){loginModal.classList.add('show');document.getElementById('loginUser').value='';document.getElementById('loginPass').value='';document.getElementById('loginUser').focus();}
+function hideLoginModal(){loginModal.classList.remove('show');}
+
+function renderUserTag(){
+  const u = getCurrentUser();
+  if(!u){userTag.classList.remove('show');loginBtn.style.display='';adminNavBtn.style.display='none';return;}
+  userTag.classList.add('show');
+  loginBtn.style.display='none';
+  document.getElementById('userAvatar').textContent = (u.username||'?').charAt(0).toUpperCase();
+  document.getElementById('userName').textContent = u.username;
+  adminNavBtn.style.display = (u.username==='黄凯'&&u.role==='admin') ? 'inline-block' : 'none';
+}
+function loginSuccess(user){setCurrentUser(user);renderUserTag();}
+function logout(){clearCurrentUser();renderUserTag();switchPage('home');}
+
+loginBtn.addEventListener('click',showLoginModal);
+document.getElementById('loginCancel').addEventListener('click',hideLoginModal);
+loginModal.addEventListener('click',e=>{if(e.target===loginModal)hideLoginModal();});
+
+document.getElementById('tabLoginBtn').addEventListener('click',function(){authMode='login';this.classList.add('active');document.getElementById('tabRegBtn').classList.remove('active');document.getElementById('loginSubmit').textContent='登录';});
+document.getElementById('tabRegBtn').addEventListener('click',function(){authMode='register';this.classList.add('active');document.getElementById('tabLoginBtn').classList.remove('active');document.getElementById('loginSubmit').textContent='注册';});
+
+document.getElementById('loginSubmit').addEventListener('click',async function(){
+  const u = document.getElementById('loginUser').value.trim();
+  const p = document.getElementById('loginPass').value;
+  if(!u||!p){alert('请填写用户名和密码');return;}
+  this.disabled = true;
+  try{
+    const rpcName = authMode==='login'?'battle_login':'battle_register';
+    const {data,error} = await sb.rpc(rpcName,{p_username:u,p_password:p});
+    if(error) throw error;
+    if(!data.ok){alert(data.error||'操作失败');return;}
+    loginSuccess(data);
+    hideLoginModal();
+  }catch(e){alert((authMode==='login'?'登录':'注册')+'失败：'+(e.message||e));}
+  finally{this.disabled=false;}
+});
+document.getElementById('loginPass').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('loginSubmit').click();});
+document.getElementById('logoutBtn').addEventListener('click',logout);
+
+document.querySelectorAll('.admin-tabs button').forEach(b=>{
+  b.addEventListener('click',function(){
+    const tab = this.dataset.adminTab;
+    document.querySelectorAll('.admin-tabs button').forEach(x=>x.classList.remove('active'));
+    this.classList.add('active');
+    document.querySelectorAll('.admin-sec').forEach(x=>x.classList.remove('active'));
+    const sec = document.getElementById('adminSec'+tab.charAt(0).toUpperCase()+tab.slice(1));
+    if(sec) sec.classList.add('active');
+    if(tab==='users') loadAdminUsers();
+    if(tab==='reports') loadAdminReports();
+    if(tab==='review') loadAdminReview();
+  });
+});
+
+let currentChatUser = null;
+let friendsLoaded = false;
+
+async function loadFriendsPage(){
+  const u = getCurrentUser();
+  if(!u){showLoginModal();return;}
+  const loading = document.getElementById('friendsLoading');
+  const content = document.getElementById('friendsContent');
+  loading.style.display='block';content.style.display='none';
+  try{
+    const {data:reqs} = await sb.rpc('battle_get_requests',{p_user:u.username});
+    const {data:friends} = await sb.rpc('battle_get_friends',{p_user:u.username});
+    const reqBox = document.getElementById('friendRequestsBox');
+    const reqList = document.getElementById('friendRequestsList');
+    if(reqs && reqs.length){
+      reqBox.style.display='block';
+      reqList.innerHTML = reqs.map(r=>'<div class="friend-item" style="cursor:default;"><div><div class="fname">'+esc(r.from_user)+'</div><div class="flast">'+fmt(r.created_at)+'</div></div><div class="req-actions"><button class="req-accept" onclick="acceptFriend(\''+esc(r.from_user)+'\')">同意</button><button class="req-reject" onclick="rejectFriend(\''+esc(r.from_user)+'\')">拒绝</button></div></div>').join('');
+    } else reqBox.style.display='none';
+
+    const fl = document.getElementById('friendsList');
+    if(friends && friends.length){
+      fl.innerHTML = friends.map(f=>'<div class="friend-item" onclick="openChat(\''+esc(f.friend_name)+'\')"><div class="fname">'+esc(f.friend_name)+'</div><div class="fright">💬</div></div>').join('');
+    } else fl.innerHTML = '<div class="empty-hint">还没有好友</div>';
+
+    await loadChatList(u.username);
+    friendsLoaded = true;
+  }catch(e){console.error(e);}
+  loading.style.display='none';content.style.display='block';
+}
+
+async function loadChatList(me){
+  const box = document.getElementById('chatList');
+  const {data:msgs} = await sb.from('battle_social').select('*').eq('type','message').in('status',['approved','unread','read']).or('user_a.eq.'+me+',user_b.eq.'+me).order('created_at',{ascending:false}).limit(200);
+  const {data:unreads} = await sb.from('battle_social').select('*').eq('type','message').eq('status','unread').eq('user_b',me);
+  const unreadMap = {};
+  (unreads||[]).forEach(m=>{unreadMap[m.user_a]=(unreadMap[m.user_a]||0)+1;});
+  const lastMap = {};
+  (msgs||[]).forEach(m=>{const other=m.user_a===me?m.user_b:m.user_a;if(!lastMap[other])lastMap[other]=m;});
+  const keys = Object.keys(lastMap);
+  if(!keys.length){box.innerHTML='<div class="empty-hint">暂无会话</div>';return;}
+  box.innerHTML = keys.map(k=>{
+    const m = lastMap[k];const un = unreadMap[k]||0;
+    return '<div class="friend-item" onclick="openChat(\''+esc(k)+'\')"><div><div class="fname">'+esc(k)+(un?' <span class="unread-num">'+un+'</span>':'')+'</div><div class="flast">'+esc((m.content||'').slice(0,24))+'</div></div><div class="fright"><span style="font-size:11px;color:#555;">'+fmt(m.created_at)+'</span></div></div>';
+  }).join('');
+}
+
+window.addFriend = async function(){
+  const u = getCurrentUser();if(!u){showLoginModal();return;}
+  const target = document.getElementById('addFriendInput').value.trim();
+  if(!target){alert('请输入用户名');return;}
+  if(target===u.username){alert('不能加自己');return;}
+  const {data,error} = await sb.rpc('battle_send_friend',{p_from:u.username,p_to:target});
+  if(error || !data.ok){alert((data&&data.error)||error.message);return;}
+  alert('申请已发送');
+  document.getElementById('addFriendInput').value='';
+  friendsLoaded=false;loadFriendsPage();
+};
+window.acceptFriend = async function(from){
+  const u = getCurrentUser();
+  const {data,error} = await sb.rpc('battle_accept_friend',{p_user:u.username,p_target:from});
+  if(error || !data.ok){alert((data&&data.error)||error.message);return;}
+  friendsLoaded=false;loadFriendsPage();
+};
+window.rejectFriend = async function(from){
+  const u = getCurrentUser();
+  const {data,error} = await sb.rpc('battle_reject_friend',{p_user:u.username,p_target:from});
+  if(error || !data.ok){alert((data&&data.error)||error.message);return;}
+  friendsLoaded=false;loadFriendsPage();
+};
+
+window.openChat = function(username){currentChatUser = username;switchPage('chat');};
+
+async function renderChatPage(){
+  const u = getCurrentUser();
+  if(!u || !currentChatUser){switchPage('friends');return;}
+  document.getElementById('chatTitle').textContent = currentChatUser;
+  const box = document.getElementById('chatBox');
+  const bar = document.getElementById('chatInputBar');
+  box.innerHTML = '<div class="spinner"></div>';
+
+  const {data:me} = await sb.from('battle_users').select('ban_all_until,ban_chat_until').eq('username',u.username).single();
+  let banned = false;
+  if(me){
+    const now = Date.now();
+    const allBan = me.ban_all_until && new Date(me.ban_all_until).getTime() > now;
+    const chatBan = me.ban_chat_until && new Date(me.ban_chat_until).getTime() > now;
+    if(allBan || chatBan){
+      banned = true;
+      const until = allBan ? me.ban_all_until : me.ban_chat_until;
+      const label = allBan ? '全站禁言' : '禁止私信';
+      bar.innerHTML = '<div class="ban-banner">🚫 你已被'+label+'至 '+fmt(until)+'</div>';
+    }
+  }
+  if(!banned) bar.innerHTML = '<input id="chatInput" placeholder="输入消息…" maxlength="500" onkeydown="if(event.key===\'Enter\')sendChatMsg()"><button onclick="sendChatMsg()">发送</button>';
+
+  const {data,error} = await sb.rpc('battle_get_messages',{p_user:u.username,p_other:currentChatUser});
+  if(error){box.innerHTML='<div class="empty-hint" style="color:#f87171">加载失败：'+esc(error.message)+'</div>';return;}
+  if(!data || !data.length) box.innerHTML = '<div class="empty-hint">还没有消息，打个招呼吧</div>';
+  else box.innerHTML = data.map(m=>{
+    const isMe = m.from_user === u.username;
+    const cls = m.status==='pending_review'?'pending':(m.status==='blocked'?'blocked':'');
+    const tip = m.status==='pending_review'?'<span class="bstatus">审核中</span>':(m.status==='blocked'?'<span class="bstatus">已屏蔽</span>':'');
+    return '<div class="chat-msg '+(isMe?'me':'other')+'"><div class="chat-bubble '+cls+'">'+esc(m.content)+tip+'</div></div>';
+  }).join('');
+  box.scrollTop = box.scrollHeight;
+  await sb.rpc('battle_mark_read',{p_user:u.username,p_other:currentChatUser}).catch(()=>{});
+}
+
+window.sendChatMsg = async function(){
+  const u = getCurrentUser();
+  if(!u || !currentChatUser){alert('请先登录');return;}
+  const input = document.getElementById('chatInput');
+  if(!input) return;
+  const content = input.value.trim();
+  if(!content) return;
+  const {data,error} = await sb.rpc('battle_send_message',{p_from:u.username,p_to:currentChatUser,p_content:content});
+  if(error || !data.ok){alert((data&&data.error)||(error&&error.message)||'发送失败');return;}
+  input.value='';
+  if(data.status==='pending_review') alert('消息包含敏感内容，已提交审核');
+  renderChatPage();
+};
+
+let reportTargetUser = null, reportTargetId = null;
+
+window.openReportCurrentUser = function(){
+  if(!currentChatUser) return;
+  reportTargetUser = currentChatUser;reportTargetId = null;
+  document.getElementById('reportTarget').textContent = currentChatUser;
+  document.getElementById('reportReason').value = '';
+  document.getElementById('reportOverlay').classList.add('show');
+};
+window.closeReport = function(){document.getElementById('reportOverlay').classList.remove('show');};
+window.submitReport = async function(){
+  const u = getCurrentUser();if(!u){alert('请先登录');return;}
+  const reason = document.getElementById('reportReason').value.trim();
+  if(!reason){alert('请填写举报原因');return;}
+  const {data,error} = await sb.rpc('battle_submit_report',{p_reporter:u.username,p_target_type:reportTargetId?'message':'user',p_target_id:reportTargetId,p_target_user:reportTargetUser,p_reason:reason});
+  if(error || !data.ok){alert('提交失败');return;}
+  alert('举报已提交');
+  closeReport();
+};
+
+async function loadAdminUsers(){
+  const box = document.getElementById('adminSecUsers');
+  box.innerHTML = '<div class="spinner"></div>';
+  const {data,error} = await sb.from('battle_users').select('*').order('id',{ascending:false}).limit(100);
+  if(error){box.innerHTML = '<div class="empty-hint" style="color:#f87171">加载失败</div>';return;}
+  if(!data.length){box.innerHTML = '<div class="empty-hint">暂无用户</div>';return;}
+  box.innerHTML = data.map(u=>{
+    const now = Date.now();
+    const allBan = u.ban_all_until && new Date(u.ban_all_until).getTime() > now;
+    const chatBan = u.ban_chat_until && new Date(u.ban_chat_until).getTime() > now;
+    const banBadge = allBan ? '<span class="badge-ban">全站禁言</span>' : (chatBan ? '<span class="badge-mute">禁私信</span>' : '');
+    return '<div class="user-card"><div class="uname">'+esc(u.username)+banBadge+'</div>'+
+      '<div class="umeta">金币 '+u.coins+' · 击杀 '+u.kills+' · 死亡 '+u.deaths+'</div>'+
+      '<div class="uactions">'+
+      '<button class="btn-red" onclick="openPunish(\''+esc(u.username)+'\')">封禁</button>'+
+      '<button class="btn-green" onclick="unpunish(\''+esc(u.username)+'\')">解封</button>'+
+      '</div></div>';
+  }).join('');
+}
+
+async function loadAdminReports(){
+  const box = document.getElementById('adminSecReports');
+  box.innerHTML = '<div class="spinner"></div>';
+  const {data,error} = await sb.rpc('battle_get_reports',{p_admin:ADMIN_NAME,p_pwd:ADMIN_PWD});
+  if(error){box.innerHTML = '<div class="empty-hint" style="color:#f87171">加载失败：'+esc(error.message)+'</div>';return;}
+  if(!data || !data.length){box.innerHTML = '<div class="empty-hint">暂无举报</div>';return;}
+  box.innerHTML = data.map(r=>{
+    const label = r.status==='pending'?'待处理':(r.status==='handled'?'已处理':'已忽略');
+    return '<div class="user-card"><div class="uname">举报人：'+esc(r.reporter)+'</div>'+
+      '<div class="umeta">目标：'+esc(r.target_user||'-')+' · '+esc(r.target_type)+'</div>'+
+      '<div style="color:#ccc;font-size:13px;margin:8px 0;">'+esc(r.reason||'（无理由）')+'</div>'+
+      '<span class="badge-mute">'+label+'</span>'+
+      (r.status==='pending'?'<div class="uactions" style="margin-top:10px;">'+
+      '<button class="btn-red" onclick="handleReport('+r.id+',\'handled\')">已处理</button>'+
+      '<button class="btn-green" onclick="handleReport('+r.id+',\'ignored\')">忽略</button>'+
+      '</div>':'')+'</div>';
+  }).join('');
+}
+window.handleReport = async function(id,action){
+  const {data,error} = await sb.rpc('battle_handle_report',{p_admin:ADMIN_NAME,p_pwd:ADMIN_PWD,p_report_id:id,p_action:action});
+  if(error || !data.ok){alert('操作失败');return;}
+  loadAdminReports();
+};
+
+async function loadAdminReview(){
+  const box = document.getElementById('adminSecReview');
+  box.innerHTML = '<div class="spinner"></div>';
+  const {data,error} = await sb.from('battle_social').select('*').eq('type','message').eq('status','pending_review').order('id',{ascending:false}).limit(100);
+  if(error){box.innerHTML = '<div class="empty-hint" style="color:#f87171">加载失败</div>';return;}
+  if(!data.length){box.innerHTML = '<div class="empty-hint">暂无待审消息</div>';return;}
+  box.innerHTML = data.map(m=>'<div class="user-card"><div class="uname">'+esc(m.user_a)+' → '+esc(m.user_b)+'</div>'+
+    '<div style="color:#ccc;font-size:13px;margin:8px 0;">'+esc(m.content)+'</div>'+
+    '<div class="uactions"><button class="btn-green" onclick="reviewMsg('+m.id+',\'approved\')">通过</button>'+
+    '<button class="btn-red" onclick="reviewMsg('+m.id+',\'blocked\')">屏蔽</button></div></div>').join('');
+}
+window.reviewMsg = async function(id,status){
+  const {data,error} = await sb.rpc('battle_review_message',{p_admin:ADMIN_NAME,p_pwd:ADMIN_PWD,p_msg_id:id,p_status:status});
+  if(error || !data.ok){alert('操作失败');return;}
+  loadAdminReview();
+};
+
+let punishTargetUser = null;
+window.openPunish = function(username){
+  punishTargetUser = username;
+  document.getElementById('punishTarget').textContent = username;
+  document.getElementById('punishOverlay').classList.add('show');
+};
+window.closePunish = function(){document.getElementById('punishOverlay').classList.remove('show');};
+window.doPunish = async function(){
+  if(!punishTargetUser){alert('未选择目标');return;}
+  const type = document.getElementById('punishType').value;
+  const hours = parseInt(document.getElementById('punishDuration').value,10);
+  const {data,error} = await sb.rpc('battle_punish',{p_admin:ADMIN_NAME,p_pwd:ADMIN_PWD,p_target:punishTargetUser,p_type:type,p_hours:hours});
+  if(error || !data.ok){alert('封禁失败');return;}
+  alert('已封禁至 '+fmt(data.until));
+  closePunish();loadAdminUsers();
+};
+window.unpunish = async function(username){
+  const {data,error} = await sb.rpc('battle_unpunish',{p_admin:ADMIN_NAME,p_pwd:ADMIN_PWD,p_target:username});
+  if(error || !data.ok){alert('解封失败');return;}
+  loadAdminUsers();
+};
+
+renderUserTag();
+})();
+</script>
+</body>
+</html>
