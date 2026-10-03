@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>枪械音效投票 · 包游战场</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{min-height:100vh;background:#05060a;color:#e0e0e0;font-family:system-ui,-apple-system,sans-serif;padding:24px 16px 60px}
+h1{color:#4ade80;text-align:center;font-size:1.4rem;letter-spacing:3px;margin-bottom:6px}
+.sub{color:#555;text-align:center;font-size:0.8rem;letter-spacing:2px;margin-bottom:24px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;max-width:720px;margin:0 auto}
+.card{background:linear-gradient(#141a28,#0e1320);border:1px solid #2a3a5a;border-radius:14px;padding:14px;text-align:center;transition:.2s}
+.card.playing{border-color:#6cf;box-shadow:0 0 20px rgba(102,204,255,.3)}
+.card.voted{border-color:#4ade80;background:rgba(74,222,128,.08)}
+.name{color:#6cf;font-size:0.95rem;font-weight:700;margin-bottom:4px}
+.desc{color:#555;font-size:0.7rem;margin-bottom:10px}
+.btn{width:100%;padding:8px;border-radius:8px;border:1px solid #2a3a5a;background:rgba(102,204,255,.08);color:#6cf;font-family:inherit;font-size:0.85rem;cursor:pointer;margin-bottom:6px;transition:.15s}
+.btn:hover{background:rgba(102,204,255,.15)}
+.btn:active{transform:scale(.96)}
+.btn.vote{border-color:rgba(74,222,128,.4);background:rgba(74,222,128,.08);color:#4ade80}
+.btn.vote:hover{background:rgba(74,222,128,.15)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.bar-wrap{margin-top:8px;height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden}
+.bar{height:100%;background:linear-gradient(90deg,#4ade80,#22c55e);width:0;transition:width .4s}
+.cnt{color:#4ade80;font-size:0.75rem;margin-top:4px;font-weight:700}
+#status{text-align:center;color:#888;font-size:0.85rem;margin:24px 0 12px;min-height:20px}
+#total{text-align:center;color:#fbbf24;font-size:0.85rem;margin-bottom:20px}
+#backBtn{display:block;margin:30px auto 0;padding:10px 28px;border-radius:10px;border:1px solid rgba(74,222,128,.4);background:rgba(74,222,128,.08);color:#4ade80;font-family:inherit;font-size:0.9rem;cursor:pointer}
+#backBtn:hover{background:rgba(74,222,128,.15)}
+</style>
+</head>
+<body>
+
+<h1>枪械音效投票</h1>
+<div class="sub">BATTLEFIELD SFX VOTE · 选出你觉得最带感的</div>
+
+<div id="status">点击卡片试听，选一个投它 👇</div>
+<div id="total"></div>
+<div class="grid" id="grid"></div>
+
+<button id="backBtn" onclick="location.href='https://baoyouwenhua.github.io/baoyou.github.io/'">← 返回战场</button>
+
+<script>
+(function(){
+'use strict';
+
+var SUPABASE_URL = "https://gklxkyznfegslkgefzas.supabase.co";
+var SUPABASE_KEY = "sb_publishable_1DNkeFcclVSVM19I6Q2AsA__DAIVlfg";
+var sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+var SFX = [
+  {key:'shoot',    name:'步枪',   desc:'连发 · 标准'},
+  {key:'pistol',   name:'手枪',   desc:'单发 · 干脆'},
+  {key:'shotgun',  name:'霰弹',   desc:'厚重 · 轰'},
+  {key:'charge',   name:'拉枪栓', desc:'金属 · 咔'},
+  {key:'magIn',    name:'上弹匣', desc:'咔 · 到位'},
+  {key:'metalHit', name:'打钢板', desc:'反弹 · 脆'},
+  {key:'ricochet', name:'跳弹',   desc:'嗖 · 划空'},
+  {key:'hurt',     name:'人物中弹', desc:'呃 · 闷'},
+];
+
+// ===== 音效引擎（你给的那套）=====
+var ac;
+function A(){
+  if(!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+  if(ac.state === 'suspended') ac.resume();
+  return ac;
+}
+var now = function(){ return A().currentTime; };
+function env(g, t, a, d, peak){
+  g.gain.cancelScheduledValues(t);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(peak, t + a);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + a + d);
+}
+var nbuf;
+function noise(){
+  var a = A();
+  if(!nbuf || nbuf.length !== a.sampleRate){
+    nbuf = a.createBuffer(1, a.sampleRate, a.sampleRate);
+    var d = nbuf.getChannelData(0);
+    for(var i=0;i<d.length;i++) d[i] = Math.random()*2 - 1;
+  }
+  var s = a.createBufferSource();
+  s.buffer = nbuf;
+  return s;
+}
+var shaper = null;
+function getShaper(){
+  if(shaper) return shaper;
+  var a = A();
+  var n = 1024;
+  var curve = new Float32Array(n);
+  for(var i=0;i<n;i++){
+    var x = i*2/n - 1;
+    curve[i] = Math.tanh(x * 4);
+  }
+  shaper = a.createWaveShaper();
+  shaper.curve = curve;
+  shaper.oversample = '2x';
+  return shaper;
+}
+var reverb = null, reverbWet = null;
+function ensureReverb(){
+  if(reverb) return;
+  var a = A();
+  var len = Math.floor(a.sampleRate * 1.4);
+  var buf = a.createBuffer(2, len, a.sampleRate);
+  for(var ch = 0; ch < 2; ch++){
+    var d = buf.getChannelData(ch);
+    for(var i = 0; i < len; i++){
+      d[i] = (Math.random()*2 - 1) * Math.pow(1 - i/len, 1.6);
+    }
+  }
+  reverb = a.createConvolver();
+  reverb.buffer = buf;
+  reverbWet = a.createGain();
+  reverbWet.gain.value = 0.7;
+  reverb.connect(reverbWet).connect(a.destination);
+}
+function wet(node){
+  ensureReverb();
+  node.connect(reverb);
+}
+
+function gunShot(o){
+  var tail = o.tail, punch = o.punch, bright = o.bright, punchFreq = o.punchFreq;
+  var a = A(), t = now();
+
+  var n1 = noise();
+  var hp = a.createBiquadFilter();
+  hp.type = 'highpass'; hp.frequency.value = bright;
+  var g1 = a.createGain();
+  env(g1, t, 0.0005, 0.045, 0.9);
+  n1.connect(hp).connect(g1).connect(a.destination);
+  wet(g1);
+  n1.start(t); n1.stop(t + 0.1);
+
+  var o1 = a.createOscillator(); o1.type = 'sine';
+  o1.frequency.setValueAtTime(punchFreq, t);
+  o1.frequency.exponentialRampToValueAtTime(punchFreq * 0.33, t + 0.09);
+  var o2 = a.createOscillator(); o2.type = 'sine';
+  o2.frequency.setValueAtTime(punchFreq * 1.09, t);
+  o2.frequency.exponentialRampToValueAtTime(punchFreq * 0.36, t + 0.09);
+  var preGain = a.createGain();
+  preGain.gain.value = 2.2;
+  env(preGain, t, 0.001, 0.13, punch);
+  o1.connect(preGain); o2.connect(preGain);
+  var ws = getShaper();
+  preGain.connect(ws);
+  ws.connect(a.destination); wet(ws);
+  o1.start(t); o1.stop(t + 0.25);
+  o2.start(t); o2.stop(t + 0.25);
+
+  var n3 = noise();
+  var lp3 = a.createBiquadFilter();
+  lp3.type = 'lowpass'; lp3.frequency.value = 300;
+  var g3 = a.createGain();
+  env(g3, t, 0.001, 0.08, punch * 0.5);
+  n3.connect(lp3).connect(g3).connect(a.destination);
+  n3.start(t); n3.stop(t + 0.15);
+
+  var n2 = noise();
+  var lp = a.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.setValueAtTime(2500, t);
+  lp.frequency.exponentialRampToValueAtTime(400, t + tail);
+  var g4 = a.createGain();
+  env(g4, t, 0.002, tail, 0.22);
+  n2.connect(lp).connect(g4).connect(a.destination);
+  wet(g4);
+  n2.start(t); n2.stop(t + tail + 0.1);
+
+  var n4 = noise();
+  var bp4 = a.createBiquadFilter();
+  bp4.type = 'bandpass'; bp4.frequency.value = 5500; bp4.Q.value = 2;
+  var g5 = a.createGain();
+  env(g5, t, 0.0003, 0.025, 0.35);
+  n4.connect(bp4).connect(g5).connect(a.destination);
+  n4.start(t); n4.stop(t + 0.05);
+}
+var shoot   = function(){ gunShot({tail:0.22, punch:0.8, bright:3000, punchFreq:100}); };
+var pistol  = function(){ gunShot({tail:0.12, punch:0.6, bright:2600, punchFreq:130}); };
+var shotgun = function(){ gunShot({tail:0.5,  punch:1.1, bright:1700, punchFreq:55}); };
+
+function metalClick(peak, base, dur, highNoise){
+  peak = peak||0.25; base = base||520; dur = dur||0.08; highNoise = highNoise||4000;
+  var a = A(), t = now();
+  [1, 1.83, 2.76, 4.07].forEach(function(k){
+    var o = a.createOscillator(); o.type = 'triangle';
+    o.frequency.value = base * k * (1 + (Math.random() - 0.5) * 0.02);
+    var g = a.createGain();
+    env(g, t, 0.0005, dur, peak / 3);
+    o.connect(g).connect(a.destination);
+    wet(g);
+    o.start(t); o.stop(t + dur + 0.05);
+  });
+  var n = noise();
+  var bp = a.createBiquadFilter();
+  bp.type = 'bandpass'; bp.frequency.value = highNoise; bp.Q.value = 1.2;
+  var g = a.createGain();
+  env(g, t, 0.0005, dur * 0.6, 0.5);
+  n.connect(bp).connect(g).connect(a.destination);
+  n.start(t); n.stop(t + dur + 0.05);
+}
+function charge(){
+  metalClick(0.22, 620, 0.06, 4500);
+  setTimeout(function(){ metalClick(0.30, 420, 0.09, 3000); }, 110);
+}
+function magIn(){
+  var a = A(), t = now();
+  var o = a.createOscillator(); o.type = 'sine';
+  o.frequency.setValueAtTime(180, t);
+  o.frequency.exponentialRampToValueAtTime(80, t + 0.05);
+  var g = a.createGain();
+  env(g, t, 0.001, 0.08, 0.4);
+  o.connect(g).connect(a.destination); wet(g);
+  o.start(t); o.stop(t + 0.15);
+  setTimeout(function(){ metalClick(0.18, 900, 0.04, 5000); }, 20);
+}
+function metalHit(){
+  var a = A(), t = now();
+  var n = noise();
+  var bp = a.createBiquadFilter();
+  bp.type = 'bandpass'; bp.frequency.value = 2000; bp.Q.value = 0.8;
+  var g1 = a.createGain();
+  env(g1, t, 0.0005, 0.04, 0.6);
+  n.connect(bp).connect(g1).connect(a.destination);
+  wet(g1);
+  n.start(t); n.stop(t + 0.1);
+  [1180, 1670, 2340, 3120, 4210].forEach(function(f, i){
+    var o = a.createOscillator(); o.type = 'sine';
+    o.frequency.value = f * (1 + (Math.random() - 0.5) * 0.015);
+    var g = a.createGain();
+    env(g, t, 0.0005, 0.7 - i * 0.08, 0.14);
+    o.connect(g).connect(a.destination);
+    wet(g);
+    o.start(t); o.stop(t + 1.0);
+  });
+  var o2 = a.createOscillator(); o2.type = 'triangle';
+  o2.frequency.setValueAtTime(180, t);
+  o2.frequency.exponentialRampToValueAtTime(70, t + 0.15);
+  var g2 = a.createGain();
+  env(g2, t, 0.001, 0.3, 0.25);
+  o2.connect(g2).connect(a.destination); wet(g2);
+  o2.start(t); o2.stop(t + 0.5);
+}
+function ricochet(){
+  var a = A(), t = now();
+  var n = noise();
+  var bp = a.createBiquadFilter();
+  bp.type = 'bandpass'; bp.Q.value = 8;
+  bp.frequency.setValueAtTime(4000, t);
+  bp.frequency.exponentialRampToValueAtTime(400, t + 0.35);
+  var g1 = a.createGain();
+  env(g1, t, 0.002, 0.35, 0.35);
+  n.connect(bp).connect(g1).connect(a.destination);
+  wet(g1);
+  n.start(t); n.stop(t + 0.5);
+  var o = a.createOscillator(); o.type = 'sine';
+  o.frequency.setValueAtTime(2800, t);
+  o.frequency.exponentialRampToValueAtTime(300, t + 0.35);
+  var g2 = a.createGain();
+  env(g2, t, 0.002, 0.3, 0.18);
+  o.connect(g2).connect(a.destination); wet(g2);
+  o.start(t); o.stop(t + 0.5);
+}
+function hurt(){
+  var a = A(), t = now();
+  var o = a.createOscillator(); o.type = 'sawtooth';
+  o.frequency.setValueAtTime(230, t);
+  o.frequency.exponentialRampToValueAtTime(120, t + 0.35);
+  var formants = [
+    {f: 800, q: 8, gain: 1},
+    {f: 1150, q: 10, gain: 0.7},
+    {f: 2900, q: 12, gain: 0.35}
+  ];
+  var out = a.createGain();
+  out.gain.value = 0;
+  formants.forEach(function(fm){
+    var bp = a.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = fm.f;
+    bp.Q.value = fm.q;
+    var g = a.createGain();
+    g.gain.value = fm.gain;
+    o.connect(bp).connect(g).connect(out);
+  });
+  var g = a.createGain();
+  env(g, t, 0.01, 0.4, 0.5);
+  out.connect(g).connect(a.destination); wet(g);
+  var n = noise();
+  var hp = a.createBiquadFilter();
+  hp.type = 'highpass'; hp.frequency.value = 1500;
+  var g2 = a.createGain();
+  env(g2, t, 0.002, 0.06, 0.15);
+  n.connect(hp).connect(g2).connect(a.destination);
+  o.start(t); n.start(t);
+  o.stop(t + 0.5); n.stop(t + 0.1);
+}
+
+var SFX_MAP = {
+  shoot: shoot, pistol: pistol, shotgun: shotgun,
+  charge: charge, magIn: magIn, metalHit: metalHit,
+  ricochet: ricochet, hurt: hurt
+};
+// ===== 音效引擎结束 =====
+
+// ===== 用户标识 =====
+function getVoter(){
+  try{
+    var u = JSON.parse(localStorage.getItem('byBattleUser')||'null');
+    if(u && u.username) return u.username;
+  }catch(e){}
+  var g = localStorage.getItem('bySfxVoter');
+  if(!g){
+    g = '游客' + Math.floor(Math.random()*900000 + 100000);
+    localStorage.setItem('bySfxVoter', g);
+  }
+  return g;
+}
+var voter = getVoter();
+var myVoted = localStorage.getItem('bySfxVoted') || null;
+
+// ===== 渲染 =====
+var grid = document.getElementById('grid');
+var statusEl = document.getElementById('status');
+var totalEl = document.getElementById('total');
+var cards = {};
+
+function build(){
+  grid.innerHTML = '';
+  SFX.forEach(function(s){
+    var card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML =
+      '<div class="name">'+s.name+'</div>' +
+      '<div class="desc">'+s.desc+'</div>' +
+      '<button class="btn" data-play="'+s.key+'">▶ 试听</button>' +
+      '<button class="btn vote" data-vote="'+s.key+'">投它</button>' +
+      '<div class="bar-wrap"><div class="bar" id="bar-'+s.key+'"></div></div>' +
+      '<div class="cnt" id="cnt-'+s.key+'">0 票</div>';
+    grid.appendChild(card);
+    cards[s.key] = card;
+    if(myVoted === s.key) card.classList.add('voted');
+    if(myVoted) card.querySelector('[data-vote]').disabled = true;
+  });
+
+  grid.querySelectorAll('[data-play]').forEach(function(b){
+    b.addEventListener('click', function(){
+      var k = b.dataset.play;
+      cards[k].classList.add('playing');
+      setTimeout(function(){ cards[k].classList.remove('playing'); }, 400);
+      A();
+      SFX_MAP[k]();
+    });
+  });
+
+  grid.querySelectorAll('[data-vote]').forEach(function(b){
+    b.addEventListener('click', function(){
+      vote(b.dataset.vote);
+    });
+  });
+}
+
+async function vote(choice){
+  if(myVoted){ alert('你已经投过票了：' + myVoted); return; }
+  try{
+    var res = await sb.rpc('battle_vote_sfx', {p_voter: voter, p_choice: choice});
+    if(res.error){ alert('投票失败：' + res.error.message); return; }
+    if(!res.data.ok){ alert(res.data.error || '投票失败'); return; }
+    myVoted = choice;
+    localStorage.setItem('bySfxVoted', choice);
+    statusEl.textContent = '✅ 投票成功！谢谢参与';
+    statusEl.style.color = '#4ade80';
+    build();
+    loadVotes();
+  }catch(e){
+    alert('投票异常：' + e.message);
+  }
+}
+
+async function loadVotes(){
+  try{
+    var res = await sb.rpc('battle_get_sfx_votes');
+    if(res.error) return;
+    var data = res.data || [];
+    if(typeof data === 'string'){ try{ data = JSON.parse(data); }catch(e){ data = []; } }
+    var counts = {};
+    var total = 0;
+    data.forEach(function(r){
+      counts[r.choice] = r.cnt;
+      total += r.cnt;
+    });
+    SFX.forEach(function(s){
+      var c = counts[s.key] || 0;
+      var pct = total > 0 ? (c / total * 100) : 0;
+      var bar = document.getElementById('bar-' + s.key);
+      var cnt = document.getElementById('cnt-' + s.key);
+      if(bar) bar.style.width = pct.toFixed(1) + '%';
+      if(cnt) cnt.textContent = c + ' 票 (' + pct.toFixed(1) + '%)';
+    });
+    totalEl.textContent = '总票数：' + total;
+  }catch(e){}
+}
+
+build();
+loadVotes();
+setInterval(loadVotes, 5000);
+
+})();
+</script>
+</body>
+</html>
