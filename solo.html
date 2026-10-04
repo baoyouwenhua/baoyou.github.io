@@ -1225,7 +1225,7 @@ function updateAI(ai, dt){
         ai.y = (myPlayer ? myPlayer.y : WORLD_H/2) + Math.sin(ang) * d;
         if(ai.x < 100) ai.x = 100;
         if(ai.y < 100) ai.y = 100;
-        if(ai.x > WORLD_W - 100) ai.x = WORLD_W  - 100) ai.x = WORLD_W - 100;
+        if(ai.x > WORLD_W - 100) ai.x = WORLD_W  - 100 ai.x = WORLD_W - 100;
         if(ai.y > WORLD_H - 100) ai.y = WORLD_H - 100;
         tries++;
       } while(tries < 50 && hitObstacle(ai.x, ai.y, ai.r));
