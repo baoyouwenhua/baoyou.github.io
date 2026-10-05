@@ -1,0 +1,10 @@
+{
+  "name": "包游战场",
+  "short_name": "包游战场",
+  "description": "浏览器联机射击游戏",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#05060a",
+  "theme_color": "#4ade80",
+  "orientation": "any"
+}
