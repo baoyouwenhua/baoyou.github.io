@@ -1843,6 +1843,47 @@ document.getElementById('worldChatSend').addEventListener('click', sendWorldChat
 document.getElementById('worldChatInput').addEventListener('keydown', function(e){
   if(e.key==='Enter') sendWorldChat();
 });
+// ====== 团队聊天补丁 ======
+var CHAT_MSG_TTL = 5000;  // 5 秒后消失
+
+function addChatMsgEl(m){
+  var el = document.getElementById('worldChatList');
+  if(!el) return;
+  var div = document.createElement('div');
+  div.className = 'cm';
+  div.dataset.id = m.id;
+  div.dataset.user = m.username;
+  div.dataset.content = m.content;
+  div.innerHTML = '<span class="cn">'+esc(m.username)+'：</span>'+esc(m.content);
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+  setTimeout(function(){
+    div.style.transition = 'opacity .5s';
+    div.style.opacity = '0';
+    setTimeout(function(){ if(div.parentNode) div.parentNode.removeChild(div); }, 500);
+  }, CHAT_MSG_TTL);
+}
+
+loadWorldChat = function(){
+  var listEl = document.getElementById('worldChatList');
+  if(!listEl) return;
+  sb.from('battle_world_chat').select('*').eq('status','approved').order('created_at',{ascending:false}).limit(30).then(function(res){
+    var data = (res.data || []).reverse();
+    listEl.innerHTML = '';
+    data.forEach(function(m){ addChatMsgEl(m); });
+  }).catch(function(){});
+  if(worldChatChannel){ try{ worldChatChannel.unsubscribe(); }catch(e){} worldChatChannel = null; }
+  worldChatChannel = sb.channel('world_chat_team_patch')
+    .on('postgres_changes', {event:'INSERT', schema:'public', table:'battle_world_chat'}, function(payload){
+      var m = payload.new;
+      if(m.status !== 'approved') return;
+      addChatMsgEl(m);
+    })
+    .subscribe();
+};
+
+loadWorldChat();
+// ====== 补丁结束 ======
 
 initGame();
 
