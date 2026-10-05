@@ -709,7 +709,7 @@ async function renderChatPage(){
     }
 
     // 5. 标记已读（失败不影响显示）
-    sb.rpc('battle_mark_read',{p_user:u.username, p_other:currentChatUser}).catch(function(){});
+    try { await sb.rpc('battle_mark_read',{p_user:u.username, p_other:currentChatUser}); } catch(e){}
 
   }catch(e){
     box.innerHTML = '<div class="empty-hint" style="color:#f87171">加载失败：'+esc(e.message||e)+'</div>';
