@@ -1894,6 +1894,60 @@ autoLogin = async function(){
   return r;
 };
 // ====== 补丁结束 ======
+// ====== 物品保存补丁 ======
+(function(){
+  if(!window.supabase || typeof initGame === 'undefined') return;
+
+  // 1. 退出时把武器 + 药品带上
+  var _orig = window.supabase.createClient;
+  window.supabase.createClient = function(url, key, opts){
+    var client = _orig.call(window.supabase, url, key, opts);
+    var _origRpc = client.rpc.bind(client);
+    client.rpc = async function(name, params){
+      if(name === 'battle_sync_stats' && params){
+        var wp = [];
+        try {
+          ['rifle','sniper','mg','knife'].forEach(function(k){
+            if(WEAPONS[k] && WEAPONS[k]._bought) wp.push(k);
+          });
+          params.p_owned_weapons = wp.join(',');
+          params.p_hp_pack  = (myPlayer && myPlayer.hp_pack)  || 0;
+          params.p_hp_super = (myPlayer && myPlayer.hp_super) || 0;
+          params.p_energy   = (myPlayer && myPlayer.energy)   || 0;
+        } catch(e){}
+      }
+      return _origRpc(name, params);
+    };
+    return client;
+  };
+
+  // 2. 开局后自动恢复物品
+  var _oldInit = initGame;
+  initGame = async function(){
+    await _oldInit();
+    try {
+      if(currentUser && currentUser.username){
+        var r = await sb.from('battle_users')
+          .select('owned_weapons,hp_pack,hp_super,energy')
+          .eq('username', currentUser.username).limit(1);
+        if(r.data && r.data[0]){
+          var d = r.data[0];
+          myPlayer.hp_pack  = d.hp_pack  || 0;
+          myPlayer.hp_super = d.hp_super || 0;
+          myPlayer.energy   = d.energy   || 0;
+          if(d.owned_weapons){
+            d.owned_weapons.split(',').forEach(function(k){
+              if(WEAPONS[k]) WEAPONS[k]._bought = true;
+            });
+          }
+          if(typeof updateAmmoHUD === 'function') updateAmmoHUD();
+          if(typeof updateMedCounts === 'function') updateMedCounts();
+        }
+      }
+    } catch(e){}
+  };
+})();
+// ====== 补丁结束 ======
 
 initGame();
 
