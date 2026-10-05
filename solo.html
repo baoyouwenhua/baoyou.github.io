@@ -1853,6 +1853,16 @@ loadWorldChat = function(){
 
 loadWorldChat();
 // ====== 补丁结束 ======
+// ====== 登录日志补丁 ======
+var _origAutoLogin = autoLogin;
+autoLogin = async function(){
+  var r = await _origAutoLogin();
+  if(r && r.username && r.role !== 'guest'){
+    try { await sb.rpc('battle_touch_login', {p_user: r.username}); } catch(e){}
+  }
+  return r;
+};
+// ====== 补丁结束 ======
 
 initGame();
 
