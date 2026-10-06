@@ -1,13 +1,23 @@
 {
+  "id": "/baoyou.github.io/",
   "name": "包游战场",
   "short_name": "包游战场",
-  "description": "浏览器联机射击游戏",
+  "description": "浏览器联机射击游戏，手机可玩",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#05060a",
   "theme_color": "#4ade80",
-  "orientation": "any",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "categories": ["games", "entertainment"],
   "icons": [
-    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
   ]
 }
