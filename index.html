@@ -1142,6 +1142,80 @@ if('serviceWorker' in navigator){
   }, 1000);
 })();
 </script>
+<!-- 管理码校验补丁 v3 -->
+<script>
+(function(){
+  var _sb = null;
+  function getSb(){
+    if(_sb) return _sb;
+    try {
+      // 从原脚本里拿 sb（如果挂到了 window）
+      if(window.sb) { _sb = window.sb; return _sb; }
+      // 没有就自己造一个
+      var URL = 'https://gklxkyznfegslkgefzas.supabase.co';
+      var KEY = 'sb_publishable_1DNkeFcclVSVM19I6Q2AsA__DAIVlfg';
+      _sb = window.supabase.createClient(URL, KEY);
+      return _sb;
+    } catch(e){ return null; }
+  }
+
+  async function askAdminCode(){
+    if(localStorage.getItem('byAdminVerified') === '1'){ window._adminAsking=false; return; }
+    var code = prompt('🔐 管理员二次验证\n请输入管理码：');
+    if(code === null){ window._adminAsking=false; return; }
+    var sb = getSb();
+    if(!sb){ alert('❌ 无法连接服务器'); window._adminAsking=false; return; }
+    try {
+      var res = await sb.rpc('battle_verify_admin_code', { p_code: code });
+      if(res.error){ alert('验证失败：' + res.error.message); window._adminAsking=false; return; }
+      if(res.data && res.data.ok === true){
+        localStorage.setItem('byAdminVerified', '1');
+        var nav = document.getElementById('adminNavBtn');
+        if(nav) nav.style.display = 'inline-block';
+        alert('✅ 验证通过');
+        window._adminAsking = false;
+      } else {
+        alert('❌ ' + ((res.data && res.data.error) || '管理码错误'));
+        window._adminAsking = false;
+        setTimeout(function(){ window._adminAsking = false; askAdminCode(); }, 3000);
+      }
+    } catch(e) {
+      alert('❌ 验证异常：' + e.message);
+      window._adminAsking = false;
+    }
+  }
+
+  window.addEventListener('load', function(){
+    setTimeout(function(){
+      setInterval(function(){
+        var u;
+        try { u = JSON.parse(localStorage.getItem('byBattleUser') || 'null'); } catch(e){ return; }
+        if(!u || u.username !== '黄凯' || u.role !== 'admin') return;
+        var nav = document.getElementById('adminNavBtn');
+        if(!nav) return;
+        if(localStorage.getItem('byAdminVerified') === '1'){
+          nav.style.display = 'inline-block';
+          return;
+        }
+        nav.style.display = 'none';
+        if(!window._adminAsking){
+          window._adminAsking = true;
+          askAdminCode();
+        }
+      }, 2000);
+    }, 800);
+  });
+
+  setTimeout(function(){
+    var logoutBtn = document.getElementById('logoutBtn');
+    if(logoutBtn){
+      logoutBtn.addEventListener('click', function(){
+        localStorage.removeItem('byAdminVerified');
+      });
+    }
+  }, 1000);
+})();
+</script>
 </body>
 <!-- 加到桌面按钮 -->
 <button id="pwaInstallBtn" style="
