@@ -1020,6 +1020,60 @@ if('serviceWorker' in navigator){
   };
 })();
 </script>
+<!-- 管理码校验补丁 -->
+<script>
+(function(){
+  var _oldRender = window.renderUserTag;
+  window.renderUserTag = function(){
+    _oldRender();
+    var u = JSON.parse(localStorage.getItem('byBattleUser') || 'null');
+    if(!u || u.username !== '黄凯') return;
+
+    // 管理员：需验证管理码
+    if(localStorage.getItem('byAdminVerified') === '1'){
+      var nav = document.getElementById('adminNavBtn');
+      if(nav) nav.style.display = 'inline-block';
+      return;
+    }
+    var nav = document.getElementById('adminNavBtn');
+    if(nav) nav.style.display = 'none';
+    setTimeout(askAdminCode, 600);
+  };
+
+  async function askAdminCode(){
+    if(localStorage.getItem('byAdminVerified') === '1') return;
+    var code = prompt('🔐 管理员二次验证\n请输入管理码：');
+    if(code === null) return;
+    try {
+      var res = await sb.rpc('battle_verify_admin_code', { p_code: code });
+      if(res.error){
+        alert('验证失败：' + res.error.message);
+        return;
+      }
+      if(res.data && res.data.ok === true){
+        localStorage.setItem('byAdminVerified', '1');
+        var nav = document.getElementById('adminNavBtn');
+        if(nav) nav.style.display = 'inline-block';
+        alert('✅ 验证通过');
+      } else {
+        alert('❌ ' + ((res.data && res.data.error) || '管理码错误'));
+        setTimeout(askAdminCode, 3000);
+      }
+    } catch(e) {
+      alert('❌ 验证异常：' + e.message);
+    }
+  }
+
+  // 退出时清验证状态
+  var logoutBtn = document.getElementById('logoutBtn');
+  if(logoutBtn){
+    var _oldLogout = logoutBtn.onclick;
+    logoutBtn.addEventListener('click', function(){
+      localStorage.removeItem('byAdminVerified');
+    });
+  }
+})();
+</script>
 </body>
 <!-- 加到桌面按钮 -->
 <button id="pwaInstallBtn" style="
