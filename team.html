@@ -2000,6 +2000,35 @@ autoLogin = async function(){
   };
 })();
 // ====== 补丁结束 ======
+// ====== 审查拦截补丁 ======
+(function(){
+  var _oldInit = initGame;
+  initGame = async function(){
+    if(currentUser && currentUser.username){
+      try {
+        var r = await sb.from('battle_users')
+          .select('review_status,ban_all_until')
+          .eq('username', currentUser.username).limit(1);
+        if(r.data && r.data[0]){
+          var d = r.data[0];
+          if(d.review_status === 'pending'){
+            alert('⚠️ 你的账号数据异常，正在审查中\n\n审查期间：\n· 可以登录\n· 可以聊天\n· 不能玩游戏\n\n请等待管理员处理');
+            location.href = LOBBY_URL;
+            return;
+          }
+          if(d.ban_all_until && new Date(d.ban_all_until).getTime() > Date.now()){
+            var t = new Date(d.ban_all_until).toLocaleString('zh-CN');
+            alert('🚫 你已被封禁\n解封时间：' + t);
+            location.href = LOBBY_URL;
+            return;
+          }
+        }
+      } catch(e){}
+    }
+    await _oldInit();
+  };
+})();
+// ====== 补丁结束 ======
 
 initGame();
 
