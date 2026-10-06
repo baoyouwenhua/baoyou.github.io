@@ -1253,6 +1253,67 @@ window._adminCodeDisabled = true;
   }, 3000);
 })();
 </script>
+<!-- 修复管理员操作注入（onclick → data-属性） -->
+<script>
+(function(){
+  function sanitize(){
+    var btns = document.querySelectorAll('button[onclick]');
+    for(var i = 0; i < btns.length; i++){
+      var btn = btns[i];
+      var oc = btn.getAttribute('onclick') || '';
+
+      // 封禁按钮：openPunish('xxx')
+      if(oc.indexOf('openPunish') === 0){
+        var s1 = oc.indexOf("openPunish('");
+        var e1 = oc.lastIndexOf("')");
+        if(s1 === 0 && e1 > s1){
+          var uname1 = oc.substring(12, e1);
+          btn.removeAttribute('onclick');
+          btn.setAttribute('data-punish', uname1);
+        }
+      }
+      // 解封按钮：unpunish('xxx')
+      else if(oc.indexOf('unpunish') === 0){
+        var s2 = oc.indexOf("unpunish('");
+        var e2 = oc.lastIndexOf("')");
+        if(s2 === 0 && e2 > s2){
+          var uname2 = oc.substring(10, e2);
+          btn.removeAttribute('onclick');
+          btn.setAttribute('data-unpunish', uname2);
+        }
+      }
+    }
+  }
+
+  // 事件委托：点击时按 data-属性分发
+  document.addEventListener('click', function(e){
+    var t = e.target;
+    if(!t || !t.getAttribute) return;
+
+    var p = t.getAttribute('data-punish');
+    if(p){
+      e.preventDefault();
+      e.stopPropagation();
+      if(typeof openPunish === 'function') openPunish(p);
+      return;
+    }
+
+    var u = t.getAttribute('data-unpunish');
+    if(u){
+      e.preventDefault();
+      e.stopPropagation();
+      if(typeof unpunish === 'function') unpunish(u);
+      return;
+    }
+  }, true);
+
+  // 后台每次重渲染都扫一遍
+  var observer = new MutationObserver(function(){ sanitize(); });
+  observer.observe(document.body, { childList: true, subtree: true });
+
+  sanitize();
+})();
+</script>
 </body>
 <!-- 加到桌面按钮 -->
 <button id="pwaInstallBtn" style="
