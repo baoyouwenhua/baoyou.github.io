@@ -1236,6 +1236,23 @@ window._adminCodeDisabled = true;
   }, 1500);
 })();
 </script>
+<!-- 管理码绕过（免验证） -->
+<script>
+(function(){
+  // 直接标记为已验证，旧补丁就不会藏管理标签
+  localStorage.setItem('byAdminVerified', '1');
+
+  // 每 3 秒保底：确保管理员标签一直显示
+  setInterval(function(){
+    var u;
+    try { u = JSON.parse(localStorage.getItem('byBattleUser') || 'null'); } catch(e){ return; }
+    if(!u || u.username !== '黄凯' || u.role !== 'admin') return;
+    localStorage.setItem('byAdminVerified', '1');
+    var nav = document.getElementById('adminNavBtn');
+    if(nav) nav.style.display = 'inline-block';
+  }, 3000);
+})();
+</script>
 </body>
 <!-- 加到桌面按钮 -->
 <button id="pwaInstallBtn" style="
