@@ -1974,5 +1974,14 @@ initGame();
 
 })();
 </script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('./sw.js')
+      .then(function(r){ console.log('SW 注册成功', r.scope); })
+      .catch(function(e){ console.warn('SW 注册失败', e); });
+  });
+}
+</script>
 </body>
 </html>
