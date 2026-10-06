@@ -955,6 +955,71 @@ if('serviceWorker' in navigator){
   font-size:14px;
   z-index:9999;
 ">📲 下载 App</a>
+<!-- 审查管理补丁 -->
+<script>
+(function(){
+  var _oldSwitch = window.switchPage;
+  window.switchPage = function(name){
+    _oldSwitch(name);
+    if(name === 'admin'){
+      setTimeout(function(){
+        var secReview = document.getElementById('adminSecReview');
+        if(!secReview) return;
+        if(document.getElementById('adminSecReviewList')){ loadReviewList(); return; }
+        var box = document.createElement('div');
+        box.id = 'adminSecReviewList';
+        box.style.marginTop = '16px';
+        secReview.appendChild(box);
+        loadReviewList();
+      }, 500);
+    }
+  };
+
+  async function loadReviewList(){
+    var box = document.getElementById('adminSecReviewList');
+    if(!box) return;
+    box.innerHTML = '<div class="spinner"></div>';
+    try{
+      var res = await sb.rpc('battle_get_reviews', {p_admin: '黄凯', p_pwd: '11080-hk'});
+      if(res.error){ box.innerHTML = '<div class="empty-hint" style="color:#f87171">加载失败</div>'; return; }
+      var data = res.data;
+      if(typeof data === 'string'){ try{ data = JSON.parse(data); }catch(e){ data = []; } }
+      if(!Array.isArray(data) || !data.length){
+        box.innerHTML = '<div class="empty-hint">暂无待审记录 ✅</div>'; return;
+      }
+      box.innerHTML = data.map(function(r){
+        var snap = r.snapshot || {};
+        return '<div class="user-card">'+
+          '<div class="uname">'+esc(r.username)+'</div>'+
+          '<div class="umeta">异常：'+esc(r.reason||'无')+'</div>'+
+          '<div style="color:#ccc;font-size:13px;margin:8px 0;">'+
+            '金币 '+snap.coins+' · 击杀 '+snap.kills+' · 死亡 '+snap.deaths+'<br>'+
+            '药：💊'+snap.hp_pack+' 🧪'+snap.hp_super+' ⚡'+snap.energy+
+          '</div>'+
+          '<div class="uactions">'+
+            '<button class="btn-green" onclick="reviewPass('+r.id+')">✅ 通过</button>'+
+            '<button class="btn-red" onclick="reviewBan('+r.id+')">🚫 永久封禁</button>'+
+          '</div></div>';
+      }).join('');
+    }catch(e){ box.innerHTML = '<div class="empty-hint" style="color:#f87171">加载失败</div>'; }
+  }
+
+  window.reviewPass = async function(id){
+    if(!confirm('确定通过？账号将恢复正常')) return;
+    var res = await sb.rpc('battle_review_action', {p_admin:'黄凯', p_pwd:'11080-hk', p_review_id:id, p_action:'pass'});
+    if(res.error || !res.data.ok){ alert('操作失败'); return; }
+    alert('已通过');
+    loadReviewList();
+  };
+  window.reviewBan = async function(id){
+    if(!confirm('确定永久封禁？账号将被删除')) return;
+    var res = await sb.rpc('battle_review_action', {p_admin:'黄凯', p_pwd:'11080-hk', p_review_id:id, p_action:'ban'});
+    if(res.error || !res.data.ok){ alert('操作失败'); return; }
+    alert('已封禁并删除');
+    loadReviewList();
+  };
+})();
+</script>
 </body>
 <!-- 加到桌面按钮 -->
 <button id="pwaInstallBtn" style="
