@@ -1969,6 +1969,242 @@ autoLogin = async function(){
   };
 })();
 // ====== 补丁结束 ======
+// ====== 单人联机补丁 v3（位置 + 子弹 + 伤害 + 击杀 + 游客） ======
+(function(){
+  if(typeof myPlayer === 'undefined') return;
+
+  var MODE = 'solo';
+  var onlinePlayers = {};   // { id: {x,y,hp,weapon,team,kills,lastRecv} }
+  var remoteBullets = [];   // 别人的子弹
+  var myNetId = null;
+
+  var _origUpdatePlayer = updatePlayer;
+  var _origRender = render;
+  var _origShoot = shoot;
+  var _origExitGame = window.exitGame;
+  var _uploadAcc = 0, _fetchAcc = 0, _bulletAcc = 0;
+
+  function ensureId(){
+    if(myNetId) return myNetId;
+    if(currentUser && currentUser.username && currentUser.role !== 'guest'){
+      myNetId = currentUser.username;
+    } else {
+      if(!window._guestId){
+        window._guestId = '游客_' + Math.random().toString(36).slice(2,7);
+      }
+      myNetId = window._guestId;
+    }
+    return myNetId;
+  }
+
+  // ==== 每帧：上传 + 拉取 + 本地子弹判定 ====
+  updatePlayer = function(dt){
+    _origUpdatePlayer(dt);
+    if(!myPlayer) return;
+    var id = ensureId();
+
+    // 每 100ms 上传自己
+    _uploadAcc += dt * 16.67;
+    if(_uploadAcc >= 100){
+      _uploadAcc = 0;
+      try {
+        sb.rpc('battle_update_pos', {
+          p_user: id, p_mode: MODE,
+          p_x: myPlayer.x, p_y: myPlayer.y,
+          p_hp: myPlayer.hp, p_weapon: myPlayer.weapon,
+          p_team: 'red', p_kills: myPlayer.kills
+        }).catch(function(){});
+      } catch(e){}
+    }
+
+    // 每 500ms 拉别人
+    _fetchAcc += dt * 16.67;
+    if(_fetchAcc >= 500){
+      _fetchAcc = 0;
+      fetchOnline(id);
+    }
+
+    // 每 200ms 拉子弹
+    _bulletAcc += dt * 16.67;
+    if(_bulletAcc >= 200){
+      _bulletAcc = 0;
+      fetchBullets(id);
+    }
+
+    // 本地模拟别人的子弹，判断打到我
+    for(var i=remoteBullets.length-1; i>=0; i--){
+      var b = remoteBullets[i];
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.life -= dt * 16.67;
+      if(b.life <= 0){ remoteBullets.splice(i,1); continue; }
+
+      if(myPlayer && !myPlayer.dead &&
+         Math.hypot(myPlayer.x - b.x, myPlayer.y - b.y) < myPlayer.r){
+        myPlayer.hp -= b.dmg;
+        showFloat(myPlayer.x, myPlayer.y - 30, '-'+b.dmg, '#ef4444');
+        if(myPlayer.hp <= 0){
+          myPlayer.hp = 0;
+          myPlayer.dead = true;
+          myPlayer.respawn = 3000;
+          myPlayer.deaths++;
+          showKill(b.owner, myPlayer.name);
+          try{ sb.rpc('battle_kill', {p_killer: b.owner, p_victim: id}).catch(function(){}); }catch(e){}
+        }
+        remoteBullets.splice(i,1);
+      }
+    }
+  };
+
+  // ==== 我开枪：本地 + 上传 ====
+  shoot = function(){
+    if(!myPlayer || myPlayer.dead) return;
+    var beforeAmmo = myPlayer.ammo[myPlayer.weapon];
+    _origShoot();
+    if(myPlayer.ammo[myPlayer.weapon] === beforeAmmo) return; // 没打出去
+
+    var w = WEAPONS[myPlayer.weapon];
+    if(w.melee) return;
+
+    var dx = crosshair.x - myPlayer.x;
+    var dy = crosshair.y - myPlayer.y;
+    var d = Math.hypot(dx, dy);
+    if(d < 0.01) return;
+    dx /= d; dy /= d;
+    var ang = Math.atan2(dy, dx) + (Math.random()-0.5) * w.spread * 2;
+    var id = ensureId();
+
+    try {
+      sb.rpc('battle_shoot', {
+        p_user: id, p_mode: MODE,
+        p_x: myPlayer.x + Math.cos(ang)*(myPlayer.r+4),
+        p_y: myPlayer.y + Math.sin(ang)*(myPlayer.r+4),
+        p_vx: Math.cos(ang)*w.speed,
+        p_vy: Math.sin(ang)*w.speed,
+        p_dmg: w.dmg
+      }).catch(function(){});
+    } catch(e){}
+  };
+
+  // ==== 拉在线玩家 ====
+  function fetchOnline(myId){
+    try {
+      sb.rpc('battle_get_online', { p_mode: MODE }).then(function(res){
+        if(res.error || !res.data) return;
+        var data = res.data;
+        if(typeof data === 'string'){ try{ data = JSON.parse(data); }catch(e){ return; } }
+        if(!Array.isArray(data)) return;
+        var now = Date.now();
+        data.forEach(function(p){
+          if(p.username === myId) return;
+          onlinePlayers[p.username] = {
+            x: p.x, y: p.y, hp: p.hp, weapon: p.weapon,
+            team: p.team, kills: p.kills, lastRecv: now
+          };
+        });
+        for(var k in onlinePlayers){
+          if(now - onlinePlayers[k].lastRecv > 3000) delete onlinePlayers[k];
+        }
+      }).catch(function(){});
+    } catch(e){}
+  }
+
+  // ==== 拉子弹 ====
+  function fetchBullets(myId){
+    try {
+      sb.rpc('battle_get_bullets', { p_mode: MODE }).then(function(res){
+        if(res.error || !res.data) return;
+        var data = res.data;
+        if(typeof data === 'string'){ try{ data = JSON.parse(data); }catch(e){ return; } }
+        if(!Array.isArray(data)) return;
+        data.forEach(function(b){
+          if(b.owner === myId) return; // 自己的本地有
+          if(remoteBullets.find(function(x){ return x.id === b.id; })) return;
+          remoteBullets.push({
+            id: b.id, owner: b.owner,
+            x: b.x, y: b.y, vx: b.vx, vy: b.vy,
+            dmg: b.dmg, life: 2000
+          });
+        });
+      }).catch(function(){});
+    } catch(e){}
+  }
+
+  // ==== 渲染别人的子弹 + 别人 ====
+  render = function(){
+    _origRender();
+    if(!myPlayer || !camera) return;
+
+    // 别人的子弹（红点）
+    gctx.fillStyle = '#f87171';
+    gctx.shadowColor = '#f87171';
+    gctx.shadowBlur = 6;
+    remoteBullets.forEach(function(b){
+      var sx = b.x - camera.x, sy = b.y - camera.y;
+      if(sx < -20 || sx > VIEW_W+20 || sy < -20 || sy > VIEW_H+20) return;
+      gctx.beginPath();
+      gctx.arc(sx, sy, 3, 0, Math.PI*2);
+      gctx.fill();
+    });
+    gctx.shadowBlur = 0;
+
+    // 别人（黑队 + 名字）
+    for(var k in onlinePlayers){
+      var p = onlinePlayers[k];
+      var sx = p.x - camera.x;
+      var sy = p.y - camera.y;
+      if(sx + 40 < 0 || sx - 40 > VIEW_W || sy + 40 < 0 || sy - 40 > VIEW_H) continue;
+      drawRemote(p, sx, sy, k);
+    }
+  };
+
+  function drawRemote(p, sx, sy, name){
+    gctx.fillStyle = '#1a1a1a';
+    gctx.fillRect(sx - 14, sy - 4, 28, 22);
+    gctx.strokeStyle = '#555';
+    gctx.lineWidth = 1;
+    gctx.strokeRect(sx - 14, sy - 4, 28, 22);
+
+    gctx.fillStyle = '#0a0a0a';
+    gctx.beginPath();
+    gctx.arc(sx, sy - 8, 12, 0, Math.PI*2);
+    gctx.fill();
+    gctx.strokeStyle = '#555';
+    gctx.stroke();
+
+    gctx.fillStyle = '#e0e0e0';
+    gctx.font = 'bold 12px system-ui';
+    gctx.textAlign = 'center';
+    gctx.fillText('👤 ' + name, sx, sy - 36);
+    gctx.textAlign = 'left';
+
+    var barW = 44, barH = 4;
+    var bx = sx - barW/2, by = sy - 22;
+    gctx.fillStyle = 'rgba(0,0,0,0.6)';
+    gctx.fillRect(bx, by, barW, barH);
+    var ratio = Math.max(0, Math.min(1, p.hp / 100));
+    gctx.fillStyle = ratio > 0.5 ? '#4ade80' : ratio > 0.25 ? '#facc15' : '#ef4444';
+    gctx.fillRect(bx, by, barW * ratio, barH);
+  }
+
+  // ==== 退出清理 ====
+  window.exitGame = async function(){
+    try {
+      var id = myNetId;
+      if(id) await sb.rpc('battle_leave', { p_user: id });
+    } catch(e){}
+    if(_origExitGame) return _origExitGame();
+    location.href = LOBBY_URL;
+  };
+
+  // ==== 定期清理服务器垃圾 ====
+  setInterval(function(){
+    try { sb.rpc('battle_cleanup').catch(function(){}); } catch(e){}
+    try { sb.rpc('battle_cleanup_bullets').catch(function(){}); } catch(e){}
+  }, 15000);
+
+})();
+// ====== 补丁结束 =====
 
 initGame();
 
