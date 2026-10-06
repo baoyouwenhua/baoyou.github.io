@@ -2248,5 +2248,106 @@ if('serviceWorker' in navigator){
   });
 }
 </script>
+<!-- 防沉迷补丁 -->
+<script>
+(function(){
+  var _SB_URL = 'https://gklxkyznfegslkgefzas.supabase.co';
+  var _SB_KEY = 'sb_publishable_1DNkeFcclVSVM19I6Q2AsA__DAIVlfg';
+  var _sb = null;
+  function getSb(){
+    if(_sb) return _sb;
+    if(window.sb) { _sb = window.sb; return _sb; }
+    if(!window.supabase) return null;
+    _sb = window.supabase.createClient(_SB_URL, _SB_KEY);
+    return _sb;
+  }
+
+  // 判断是否未成年人可玩时段
+  function isMinorTimeOK(){
+    var now = new Date();
+    // 北京时间
+    var bj = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
+    var day = bj.getDay(); // 0=周日 5=周五 6=周六
+    var hour = bj.getHours();
+    var isFriSatSun = (day === 5 || day === 6 || day === 0);
+    var inWindow = (hour === 20);
+    return isFriSatSun && inWindow;
+  }
+
+  async function checkAntiAddiction(){
+    var u;
+    try { u = JSON.parse(localStorage.getItem('byBattleUser') || 'null'); } catch(e){ return true; }
+    if(!u || !u.username) return true;
+
+    var sb = getSb();
+    if(!sb) return true;
+
+    var r;
+    try {
+      r = await sb.from('battle_users')
+        .select('birth_year')
+        .eq('username', u.username)
+        .limit(1);
+    } catch(e){ return true; }
+
+    var data = r.data && r.data[0];
+    var by = data ? data.birth_year : null;
+
+    // 未填出生年份 → 弹窗问
+    if(!by){
+      var input = prompt('为遵守防沉迷规定，请填写出生年份\n（例：2010）');
+      if(input === null || input === ''){
+        alert('未填写出生年份，无法进入游戏');
+        return false;
+      }
+      var y = parseInt(input, 10);
+      if(!y || y < 1900 || y > 2026){
+        alert('年份不合法');
+        return false;
+      }
+      try {
+        await sb.rpc('battle_set_birth_year', { p_user: u.username, p_year: y });
+      } catch(e){}
+      by = y;
+    }
+
+    // 判断年龄
+    var age = new Date().getFullYear() - by;
+    if(age >= 18) return true;
+
+    // 未成年人 → 时段限制
+    if(!isMinorTimeOK()){
+      alert('🕐 未成年人防沉迷提示\n\n根据国家规定，未成年人仅可在\n周五、周六、周日及法定节假日\n20:00 - 21:00 期间游戏。\n\n感谢理解。');
+      return false;
+    }
+    return true;
+  }
+
+  // 覆盖 initGame（在 solo.html / team.html 里生效）
+  if(typeof initGame === 'function'){
+    var _oldInit = initGame;
+    initGame = async function(){
+      var ok = await checkAntiAddiction();
+      if(!ok){
+        setTimeout(function(){ location.href = (typeof LOBBY_URL !== 'undefined' ? LOBBY_URL : '/'); }, 100);
+        return;
+      }
+      await _oldInit();
+    };
+  }
+
+  // 大厅：登录成功后也检查一次
+  window.addEventListener('load', function(){
+    setTimeout(async function(){
+      var u;
+      try { u = JSON.parse(localStorage.getItem('byBattleUser') || 'null'); } catch(e){ return; }
+      if(!u || !u.username) return;
+      // 只在是正式账号时检查
+      if(u.role === 'guest') return;
+      await checkAntiAddiction();
+    }, 2000);
+  });
+})();
+</script>
 </body>
 </html>
