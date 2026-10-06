@@ -933,4 +933,54 @@ loadLeaderboard();
 })();
 </script>
 </body>
+<!-- 加到桌面按钮 -->
+<button id="pwaInstallBtn" style="
+  position:fixed;
+  bottom:20px; right:20px;
+  padding:12px 20px;
+  background:linear-gradient(135deg,#4ade80,#22c55e);
+  color:#05060a;
+  border:none;
+  border-radius:12px;
+  font-family:inherit;
+  font-weight:900;
+  font-size:14px;
+  box-shadow:0 4px 20px rgba(74,222,128,.4);
+  cursor:pointer;
+  z-index:9999;
+  display:none;
+">📲 加到桌面</button>
+
+<script>
+(function(){
+  var deferredPrompt = null;
+  var btn = document.getElementById('pwaInstallBtn');
+
+  window.addEventListener('beforeinstallprompt', function(e){
+    e.preventDefault();
+    deferredPrompt = e;
+    if(btn) btn.style.display = 'block';
+  });
+
+  if(btn){
+    btn.addEventListener('click', async function(){
+      if(!deferredPrompt){
+        alert('你的浏览器不支持一键安装，请用 Chrome 打开，或手动添加到桌面');
+        return;
+      }
+      deferredPrompt.prompt();
+      var res = await deferredPrompt.userChoice;
+      if(res.outcome === 'accepted'){
+        alert('✅ 已添加到桌面！');
+        btn.style.display = 'none';
+      }
+      deferredPrompt = null;
+    });
+  }
+
+  window.addEventListener('appinstalled', function(){
+    if(btn) btn.style.display = 'none';
+  });
+})();
+</script>
 </html>
