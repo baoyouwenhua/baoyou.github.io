@@ -1415,6 +1415,55 @@ window._adminCodeDisabled = true;
   });
 })();
 </script>
+<!-- 令牌补丁：登录存 token，保存自动带上 -->
+<script>
+(function(){
+  function patchClient(c){
+    if(!c || c.__tokenPatched) return c;
+    c.__tokenPatched = true;
+    var _rpc = c.rpc.bind(c);
+    c.rpc = function(name, params){
+      params = params || {};
+
+      // 保存战绩：自动带上 token
+      if(name === 'battle_sync_stats' && params.p_user){
+        var u = null;
+        try { u = JSON.parse(localStorage.getItem('byBattleUser') || 'null'); } catch(e){}
+        params.p_token = (u && u.token) ? u.token : '';
+      }
+
+      // 登录：把返回的 token 存进 localStorage
+      if(name === 'battle_login'){
+        return _rpc(name, params).then(function(res){
+          try {
+            if(res && res.data && res.data.ok && res.data.token){
+              var u = JSON.parse(localStorage.getItem('byBattleUser') || '{}') || {};
+              u.token = res.data.token;
+              localStorage.setItem('byBattleUser', JSON.stringify(u));
+            }
+          } catch(e){}
+          return res;
+        });
+      }
+
+      return _rpc(name, params);
+    };
+    return c;
+  }
+
+  // 拦截 createClient
+  var _create = window.supabase.createClient;
+  window.supabase.createClient = function(url, key, opts){
+    var c = _create.call(window.supabase, url, key, opts);
+    return patchClient(c);
+  };
+
+  // 补丁兜底：页面加载后，如果已有 sb，也补一下
+  window.addEventListener('load', function(){
+    if(window.sb) patchClient(window.sb);
+  });
+})();
+</script>
 </body>
 <!-- 加到桌面按钮 -->
 <button id="pwaInstallBtn" style="
