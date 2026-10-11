@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>包游战场 · 大厅</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{min-height:100%;background:#05060a;color:#e0e0e0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+body{padding-bottom:80px}
+a{color:inherit;text-decoration:none}
+
+#nav{position:sticky;top:0;z-index:100;background:rgba(5,6,10,.95);backdrop-filter:blur(12px);border-bottom:1px solid rgba(74,222,128,.15);padding:12px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+#nav .logo{color:#4ade80;font-weight:900;font-size:1.1rem;letter-spacing:2px}
+#nav .tabs{display:flex;gap:4px;flex:1}
+#nav .tabs button{background:transparent;border:none;color:#888;font-family:inherit;font-size:14px;padding:8px 14px;border-radius:8px;cursor:pointer;transition:all .2s}
+#nav .tabs button.active{color:#4ade80;background:rgba(74,222,128,.1)}
+#nav .tabs button:hover{color:#4ade80}
+#userBox{display:flex;align-items:center;gap:10px}
+#userAvatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#4ade80,#22c55e);display:flex;align-items:center;justify-content:center;font-weight:900;color:#05060a;font-size:14px}
+#userName{color:#4ade80;font-weight:bold;font-size:14px}
+#loginBtn,#logoutBtn{background:transparent;border:1px solid rgba(255,255,255,.15);color:#ccc;padding:6px 12px;border-radius:8px;font-family:inherit;font-size:12px;cursor:pointer}
+#loginBtn:hover{border-color:#4ade80;color:#4ade80}
+#logoutBtn:hover{border-color:#f87171;color:#f87171}
+
+.page{display:none;padding:20px 16px;max-width:720px;margin:0 auto}
+.page.active{display:block}
+
+#homeTitle{text-align:center;margin:20px 0 30px}
+#homeTitle h1{color:#4ade80;font-size:2rem;letter-spacing:6px;text-shadow:0 0 30px rgba(74,222,128,.4)}
+#homeTitle p{color:#666;font-size:13px;letter-spacing:3px;margin-top:8px}
+.mode-card{background:rgba(15,15,25,.7);border:1px solid rgba(74,222,128,.25);border-radius:14px;padding:22px;margin-bottom:14px;cursor:pointer;transition:all .2s;text-align:center}
+.mode-card:hover{border-color:#4ade80;background:rgba(74,222,128,.06);transform:translateY(-2px)}
+.mode-card .icon{font-size:2.5rem;margin-bottom:8px}
+.mode-card .name{color:#4ade80;font-size:1.15rem;font-weight:bold;margin-bottom:4px}
+.mode-card .desc{color:#888;font-size:12px}
+
+#rankBox{background:rgba(15,15,25,.7);border:1px solid rgba(251,191,36,.3);border-radius:14px;padding:18px;margin-top:20px}
+#rankBox h2{color:#fbbf24;font-size:1.05rem;text-align:center;margin-bottom:14px;letter-spacing:2px}
+.rank-row{display:flex;align-items:center;padding:10px 12px;border-radius:8px;margin-bottom:6px;background:rgba(255,255,255,.03)}
+.rank-row.top1{background:linear-gradient(90deg,rgba(74,222,128,.18),transparent);border:1px solid rgba(74,222,128,.4)}
+.rank-row .pos{width:30px;font-weight:900;color:#666;text-align:center}
+.rank-row.top1 .pos{color:#4ade80}
+.rank-row .uname{flex:1;margin-left:10px;font-weight:bold;color:#e0e0e0}
+.rank-row .kills{color:#f87171;font-weight:bold;margin-right:14px}
+.rank-row .gold{color:#fbbf24;font-weight:bold;font-size:13px}
+
+.log-item{background:rgba(15,15,25,.7);border:1px solid rgba(74,222,128,.2);border-radius:12px;padding:18px;margin-bottom:12px}
+.log-item h3{color:#4ade80;font-size:1rem;margin-bottom:10px}
+.log-item ul{list-style:none;padding-left:0}
+.log-item li{color:#aaa;font-size:13px;line-height:2;padding-left:16px;position:relative}
+.log-item li::before{content:'▸';position:absolute;left:0;color:#4ade80}
+
+#friendSearch{display:flex;gap:8px;margin-bottom:20px}
+#friendSearch input{flex:1;padding:11px 14px;border-radius:8px;border:1px solid rgba(74,222,128,.3);background:rgba(0,0,0,.4);color:#e0e0e0;font-family:inherit;font-size:14px;outline:none}
+#friendSearch button{padding:11px 20px;border:none;border-radius:8px;background:#4ade80;color:#05060a;font-weight:bold;font-family:inherit;cursor:pointer}
+.section-title{color:#4ade80;font-size:1rem;font-weight:bold;margin:20px 0 10px;letter-spacing:1px}
+.friend-row{display:flex;align-items:center;padding:12px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:10px;margin-bottom:8px;cursor:pointer}
+.friend-row:hover{border-color:rgba(74,222,128,.4)}
+.friend-row .name{flex:1;font-weight:bold}
+.friend-row .go{color:#4ade80;font-size:18px}
+
+#chatPage{padding:0;max-width:100%}
+#chatHeader{position:sticky;top:0;z-index:50;background:rgba(5,6,10,.95);backdrop-filter:blur(10px);padding:14px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(74,222,128,.15)}
+#chatBack{background:transparent;border:none;color:#ccc;font-size:20px;cursor:pointer;font-family:inherit}
+#chatTarget{flex:1;color:#4ade80;font-weight:bold;font-size:1rem}
+#chatReportBtn{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.5);color:#f87171;padding:6px 12px;border-radius:8px;font-family:inherit;font-size:12px;cursor:pointer}
+#chatList{min-height:calc(100vh - 260px);padding:20px 16px;display:flex;flex-direction:column;gap:8px}
+.msg{max-width:75%;padding:10px 14px;border-radius:12px;font-size:14px;line-height:1.5;word-break:break-word}
+.msg.self{align-self:flex-end;background:#4ade80;color:#05060a}
+.msg.other{align-self:flex-start;background:rgba(255,255,255,.08);color:#e0e0e0}
+#chatInputRow{position:fixed;bottom:0;left:0;right:0;padding:12px 16px;background:rgba(5,6,10,.95);backdrop-filter:blur(10px);border-top:1px solid rgba(74,222,128,.15);display:flex;gap:8px;z-index:60}
+#chatInput{flex:1;padding:11px 14px;border-radius:10px;border:1px solid rgba(74,222,128,.3);background:rgba(0,0,0,.5);color:#e0e0e0;font-family:inherit;font-size:14px;outline:none}
+#chatSend{padding:11px 24px;border:none;border-radius:10px;background:#4ade80;color:#05060a;font-weight:bold;font-family:inherit;cursor:pointer}
+
+.modal-ov{position:fixed;inset:0;background:rgba(5,6,10,.92);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:400;padding:20px}
+.modal-ov.show{display:flex}
+.modal-card{width:380px;max-width:100%;padding:28px;background:rgba(10,12,18,.98);border:1px solid rgba(74,222,128,.3);border-radius:16px;box-shadow:0 0 60px rgba(74,222,128,.15);max-height:85vh;overflow-y:auto}
+.modal-card h2{color:#4ade80;font-size:1.1rem;text-align:center;margin-bottom:18px;letter-spacing:2px}
+.modal-card input,.modal-card textarea,.modal-card select{width:100%;padding:11px 14px;margin-bottom:10px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(0,0,0,.5);color:#e0e0e0;font-family:inherit;font-size:14px;outline:none}
+.modal-card input:focus,.modal-card textarea:focus{border-color:#4ade80}
+.modal-card textarea{min-height:80px;resize:vertical}
+.tab-row{display:flex;gap:6px;margin-bottom:16px;background:rgba(0,0,0,.4);padding:4px;border-radius:10px}
+.tab-row button{flex:1;padding:9px;border:none;border-radius:8px;background:transparent;color:#888;font-family:inherit;font-size:14px;font-weight:bold;cursor:pointer;transition:all .2s}
+.tab-row button.active{background:#4ade80;color:#05060a}
+.btn-row{display:flex;gap:10px;margin-top:6px}
+.btn-row button{flex:1;padding:11px;border-radius:8px;border:none;font-family:inherit;font-size:14px;font-weight:bold;cursor:pointer}
+.btn-primary{background:#4ade80;color:#05060a}
+.btn-ghost{background:transparent;border:1px solid rgba(255,255,255,.15);color:#888}
+.btn-danger{background:#f87171;color:#05060a}
+.admin-tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.admin-tabs button{padding:7px 14px;border-radius:8px;border:1px solid rgba(74,222,128,.3);background:transparent;color:#4ade80;font-family:inherit;font-size:13px;cursor:pointer}
+.admin-tabs button.active{background:#4ade80;color:#05060a}
+.admin-panel{display:none}
+.admin-panel.active{display:block}
+.admin-item{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(255,255,255,.03);border-radius:8px;margin-bottom:6px;gap:8px}
+.admin-item .info{flex:1;font-size:13px;line-height:1.6;word-break:break-word}
+.admin-item .info b{color:#4ade80}
+.admin-item .info small{color:#666}
+.admin-item .actions button{margin-left:4px;padding:5px 10px;border:none;border-radius:6px;font-family:inherit;font-size:12px;cursor:pointer}
+.btn-green{background:rgba(74,222,128,.2);color:#4ade80}
+.btn-red{background:rgba(239,68,68,.2);color:#f87171}
+.btn-yellow{background:rgba(251,191,36,.2);color:#fbbf24}
+.empty-hint{text-align:center;color:#555;padding:30px 20px;font-size:13px}
+.spinner{width:36px;height:36px;border:3px solid rgba(74,222,128,.2);border-top-color:#4ade80;border-radius:50%;animation:spin .8s linear infinite;margin:20px auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+#downloadBtn{position:fixed;bottom:20px;left:20px;padding:10px 18px;background:rgba(74,222,128,.12);color:#4ade80;border:1px solid rgba(74,222,128,.4);border-radius:12px;font-weight:900;font-size:13px;z-index:90}
+</style>
+</head><body>
+
+<nav id="nav">
+<div class="logo">包游战场</div>
+<div class="tabs" id="navTabs">
+<button data-page="home" class="active">首页</button>
+<button data-page="log">更新日志</button>
+<button data-page="friends">好友</button>
+</div>
+<div id="userBox">
+<div id="userAvatar" style="display:none">?</div>
+<div id="userName" style="display:none">游客</div>
+<button id="loginBtn">登录</button>
+<button id="logoutBtn" style="display:none">退出</button>
+</div>
+</nav>
+
+<!-- 首页 -->
+<div class="page active" id="pageHome">
+<div id="homeTitle">
+<h1>包游战场</h1>
+<p>BAOYOU BATTLEFIELD</p>
+</div>
+
+<div class="mode-card" onclick="location.href='solo.html'">
+<div class="icon">👤</div>
+<div class="name">单人模式</div>
+<div class="desc">10 人混战 · AI 补齐</div>
+</div>
+
+<div class="mode-card" onclick="location.href='team.html'">
+<div class="icon">👥</div>
+<div class="name">团队模式</div>
+<div class="desc">1v1 ~ 5v5 · 10 分钟一局</div>
+</div>
+
+<div class="mode-card" onclick="location.href='vote.html'">
+<div class="icon">🎵</div>
+<div class="name">音效投票</div>
+<div class="desc">选出最带感的枪声</div>
+</div>
+
+<div id="rankBox">
+<h2>🏆 击杀榜 Top 20</h2>
+<div id="rankList"><div class="empty-hint">加载中…</div></div>
+</div>
+</div>
+
+<!-- 更新日志 -->
+<div class="page" id="pageLog">
+<div class="log-item">
+<h3>v0.3.0 · 游戏本体 + 联机</h3>
+<ul>
+<li>单人模式（最多 10 真人，AI 补齐）</li>
+<li>团队模式（1v1 到 5v5）</li>
+<li>武器系统（手枪/步枪/狙击/机枪/长刀）</li>
+<li>商店 + 商人 + 金币</li>
+<li>世界聊天 + 击杀播报</li>
+<li>Supabase 实时联机</li>
+</ul>
+</div>
+<div class="log-item">
+<h3>v0.2.0 · 大堂</h3>
+<ul>
+<li>独立登录 / 注册系统</li>
+<li>好友系统 + 私信</li>
+<li>举报 + 消息审核 + 惩罚管理</li>
+</ul>
+</div>
+</div><!-- 好友 -->
+<div class="page" id="pageFriends">
+<div class="section-title">➕ 添加好友</div>
+<div id="friendSearch">
+<input id="friendInput" placeholder="输入用户名" maxlength="20">
+<button onclick="addFriend()">添加</button>
+</div>
+
+<div class="section-title">📨 好友请求</div>
+<div id="friendReqList"><div class="empty-hint">暂无请求</div></div>
+
+<div class="section-title">👥 我的好友</div>
+<div id="friendList"><div class="empty-hint">暂无好友</div></div>
+
+<div class="section-title">💬 会话</div>
+<div id="chatSessionList"><div class="empty-hint">暂无会话</div></div>
+</div>
+
+<!-- 私信页 -->
+<div class="page" id="chatPage">
+<div id="chatHeader">
+<button id="chatBack" onclick="switchPage('friends')">←</button>
+<div id="chatTarget">聊天</div>
+<button id="chatReportBtn" onclick="openReportModal()">🚩 举报</button>
+</div>
+<div id="chatList"></div>
+<div id="chatInputRow">
+<input id="chatInput" placeholder="说点什么…" maxlength="200">
+<button id="chatSend" onclick="sendChatMsg()">发送</button>
+</div>
+</div><!-- 登录/注册 -->
+<div class="modal-ov" id="loginModal">
+<div class="modal-card">
+<h2>登录 / 注册</h2>
+<div class="tab-row">
+<button class="active" id="tabLoginBtn">登录</button>
+<button id="tabRegBtn">注册</button>
+</div>
+<input id="loginUser" placeholder="用户名" maxlength="20" autocomplete="username">
+<input id="loginPass" type="password" placeholder="密码" maxlength="30" autocomplete="current-password">
+<div class="btn-row">
+<button class="btn-ghost" onclick="hideLoginModal()">取消</button>
+<button class="btn-primary" id="loginSubmit">登录</button>
+</div>
+</div>
+</div>
+
+<!-- 举报 -->
+<div class="modal-ov" id="reportModal">
+<div class="modal-card">
+<h2>🚩 举报</h2>
+<div id="reportTarget" style="color:#7ee7ff;font-weight:600;font-size:13px;text-align:center;margin-bottom:14px;"></div>
+<textarea id="reportReason" placeholder="请描述举报原因…"></textarea>
+<div class="btn-row">
+<button class="btn-ghost" onclick="hideReportModal()">取消</button>
+<button class="btn-primary" onclick="submitReport()">提交</button>
+</div>
+</div>
+</div>
+
+<!-- 封禁 -->
+<div class="modal-ov" id="punishModal">
+<div class="modal-card">
+<h2>⚖️ 封禁</h2>
+<div id="punishTarget" style="color:#f87171;font-weight:600;font-size:13px;text-align:center;margin-bottom:14px;"></div>
+<select id="punishType">
+<option value="1">全站禁言（不能发世界消息，能玩能私信）</option>
+<option value="2">半封（不能发消息，能玩）</option>
+<option value="3">全封（游戏聊天全禁）</option>
+</select>
+<select id="punishHours">
+<option value="1">1 小时</option>
+<option value="24">1 天</option>
+<option value="72">3 天</option>
+<option value="168">7 天</option>
+<option value="720">30 天</option>
+<option value="0">永久</option>
+</select>
+<div class="btn-row">
+<button class="btn-ghost" onclick="hidePunishModal()">取消</button>
+<button class="btn-danger" onclick="doPunish()">封禁</button>
+</div>
+</div>
+</div>
+
+<!-- 管理员后台 -->
+<div class="page" id="pageAdmin">
+<div class="section-title">🛠️ 管理员后台</div>
+<div class="admin-tabs">
+<button class="active" data-tab="users">用户</button>
+<button data-tab="reports">举报</button>
+<button data-tab="chatReports">聊天举报</button>
+<button data-tab="review">审核</button>
+<button data-tab="words">敏感词</button>
+</div>
+<div class="admin-panel active" id="adminUsers"><div class="empty-hint">加载中…</div></div>
+<div class="admin-panel" id="adminReports"><div class="empty-hint">加载中…</div></div>
+<div class="admin-panel" id="adminChatReports"><div class="empty-hint">加载中…</div></div>
+<div class="admin-panel" id="adminReview"><div class="empty-hint">加载中…</div></div>
+<div class="admin-panel" id="adminWords"><div class="empty-hint">加载中…</div></div>
+</div>
+
+<a id="downloadBtn" href="download.html">📱 下载 App</a>
+
+</body><script>(function(){
+'use strict';
+
+// ===== 配置 =====
+var WORKER_URL = 'https://steep-pine-db4a.hk-3.workers.dev';
+var FAKE_KEY = 'worker-proxy';
+var sb = supabase.createClient(WORKER_URL, FAKE_KEY);
+
+// ===== 工具 =====
+function esc(s){
+  return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+function getCurrentUser(){
+  try{return JSON.parse(localStorage.getItem('byBattleUser')||'null');}
+  catch(e){return null;}
+}
+function setCurrentUser(u){localStorage.setItem('byBattleUser',JSON.stringify(u));}
+function clearCurrentUser(){localStorage.removeItem('byBattleUser');}
+function getToken(){
+  var u = getCurrentUser();
+  return (u && u.token) ? u.token : '';
+}
+function validUsername(s){
+  return /^[A-Za-z0-9_\u4e00-\u9fa5]{1,20}$/.test(s);
+}
+function fmt(t){ return t ? new Date(t).toLocaleString('zh-CN') : ''; }
+
+// ===== 页面切换 =====
+var pages = {
+  home: document.getElementById('pageHome'),
+  log: document.getElementById('pageLog'),
+  friends: document.getElementById('pageFriends'),
+  chat: document.getElementById('chatPage'),
+  admin: document.getElementById('pageAdmin')
+};
+
+window.switchPage = function(name){
+  for(var k in pages) if(pages[k]) pages[k].classList.remove('active');
+  if(pages[name]) pages[name].classList.add('active');
+  document.querySelectorAll('#navTabs button').forEach(function(b){
+    b.classList.toggle('active', b.dataset.page === name);
+  });
+  if(name === 'home') loadLeaderboard();
+  if(name === 'friends') loadFriendsPage();
+  if(name === 'admin') loadAdminUsers();
+  window.scrollTo(0, 0);
+};
+
+document.querySelectorAll('#navTabs button').forEach(function(b){
+  b.addEventListener('click', function(){ switchPage(b.dataset.page); });
+});
+
+// ===== 登录注册 =====
+var loginModal = document.getElementById('loginModal');
+var authMode = 'login';
+
+function showLoginModal(){
+  loginModal.classList.add('show');
+  document.getElementById('loginUser').value = '';
+  document.getElementById('loginPass').value = '';
+  document.getElementById('loginUser').focus();
+}
+window.hideLoginModal = function(){ loginModal.classList.remove('show'); };
+window.showLoginModal = showLoginModal;
+
+document.getElementById('loginBtn').addEventListener('click', showLoginModal);
+
+document.getElementById('tabLoginBtn').addEventListener('click', function(){
+  authMode = 'login';
+  this.classList.add('active');
+  document.getElementById('tabRegBtn').classList.remove('active');
+  document.getElementById('loginSubmit').textContent = '登录';
+});
+document.getElementById('tabRegBtn').addEventListener('click', function(){
+  authMode = 'register';
+  this.classList.add('active');
+  document.getElementById('tabLoginBtn').classList.remove('active');
+  document.getElementById('loginSubmit').textContent = '注册';
+});
+
+document.getElementById('loginSubmit').addEventListener('click', async function(){
+  var u = document.getElementById('loginUser').value.trim();
+  var p = document.getElementById('loginPass').value;
+  if(!u || !p){ alert('请填写用户名和密码'); return; }
+  if(authMode === 'register' && !validUsername(u)){
+    alert('用户名只能含中文、字母、数字、下划线，1~20 位'); return;
+  }
+  this.disabled = true;
+  try {
+    var rpcName = (authMode === 'login') ? 'battle_login' : 'battle_register';
+    var params = (authMode === 'login')
+      ? { p_username: u, p_password: p }
+      : { p_username: u, p_password: p, p_ip: '0.0.0.0' };
+    var res = await sb.rpc(rpcName, params);
+    if(res.error) throw res.error;
+    if(!res.data || res.data.ok !== true){
+      alert('失败：' + ((res.data && res.data.error) || '未知'));
+      return;
+    }
+    if(authMode === 'login'){
+      var u2 = getCurrentUser() || {};
+      u2.username = res.data.username || u;
+      u2.token = res.data.token || '';
+      u2.role = 'user';
+      setCurrentUser(u2);
+    } else {
+      setCurrentUser({username: u, role: 'guest'});
+    }
+    hideLoginModal();
+    renderUserTag();
+    alert(authMode === 'login' ? '登录成功' : '注册成功，请登录');
+  } catch(e){
+    alert('异常：' + (e.message || e));
+  } finally {
+    this.disabled = false;
+  }
+});
+
+document.getElementById('logoutBtn').addEventListener('click', function(){
+  clearCurrentUser();
+  localStorage.removeItem('byAdminVerified');
+  renderUserTag();
+  switchPage('home');
+});
+
+function renderUserTag(){
+  var u = getCurrentUser();
+  var avatar = document.getElementById('userAvatar');
+  var nameEl = document.getElementById('userName');
+  var loginBtn = document.getElementById('loginBtn');
+  var logoutBtn = document.getElementById('logoutBtn');
+  var adminTab = document.querySelector('#navTabs button[data-page="admin"]');
+  if(!u || !u.username){
+    avatar.style.display = 'none';
+    nameEl.style.display = 'none';
+    loginBtn.style.display = '';
+    logoutBtn.style.display = 'none';
+    if(adminTab) adminTab.style.display = 'none';
+    return;
+  }
+  avatar.style.display = 'flex';
+  avatar.textContent = u.username.slice(0,1).toUpperCase();
+  nameEl.style.display = '';
+  nameEl.textContent = u.username;
+  loginBtn.style.display = 'none';
+  logoutBtn.style.display = '';
+  // 管理员按钮先隐藏，由管理码补丁决定
+  if(adminTab) adminTab.style.display = 'none';
+}// ===== 排行榜 =====
+async function loadLeaderboard(){
+  var box = document.getElementById('rankList');
+  if(!box) return;
+  box.innerHTML = '<div class="empty-hint">加载中…</div>';
+  try {
+    var res = await sb.from('battle_users')
+      .select('username,kills,coins')
+      .order('kills', {ascending:false})
+      .limit(20);
+    var data = res.data || [];
+    if(!data.length){ box.innerHTML = '<div class="empty-hint">暂无数据</div>'; return; }
+    var me = getCurrentUser();
+    var myName = me ? me.username : '';
+    box.innerHTML = data.map(function(r,i){
+      var cls = i===0 ? ' top1' : '';
+      var isMe = r.username === myName;
+      return '<div class="rank-row'+cls+'"'+(isMe?' style="outline:1px solid #4ade80"':'')+'>'
+        + '<div class="pos">'+(i+1)+'</div>'
+        + '<div class="uname">'+esc(r.username)+(isMe?' (你)':'')+'</div>'
+        + '<div class="kills">'+(r.kills||0)+' 杀</div>'
+        + '<div class="gold">'+(r.coins||0)+' 💰</div>'
+        + '</div>';
+    }).join('');
+  } catch(e){
+    box.innerHTML = '<div class="empty-hint">加载失败</div>';
+  }
+}
+
+// ===== 好友 =====
+var currentChatUser = null;
+
+window.addFriend = async function(){
+  var me = getCurrentUser();
+  if(!me || !me.username){ showLoginModal(); return; }
+  var target = document.getElementById('friendInput').value.trim();
+  if(!target){ alert('请输入用户名'); return; }
+  if(target === me.username){ alert('不能加自己'); return; }
+  try {
+    var res = await sb.rpc('battle_send_friend_req', {
+      p_from: me.username, p_to: target
+    });
+    if(res.error || !res.data || res.data.ok !== true){
+      alert('失败：' + ((res.data && res.data.error) || '未知'));
+      return;
+    }
+    alert('申请已发送');
+    document.getElementById('friendInput').value = '';
+    loadFriendsPage();
+  } catch(e){ alert('异常：' + e.message); }
+};
+
+window.acceptFriend = async function(from){
+  var me = getCurrentUser();
+  if(!me) return;
+  try {
+    var res = await sb.rpc('battle_accept_friend', { p_me: me.username, p_from: from });
+    if(res.data && res.data.ok === true){ loadFriendsPage(); }
+    else alert('操作失败');
+  } catch(e){ alert('异常'); }
+};
+
+window.rejectFriend = async function(from){
+  var me = getCurrentUser();
+  if(!me) return;
+  try {
+    var res = await sb.rpc('battle_reject_friend', { p_me: me.username, p_from: from });
+    if(res.data && res.data.ok === true){ loadFriendsPage(); }
+  } catch(e){}
+};
+
+async function loadFriendsPage(){
+  var me = getCurrentUser();
+  if(!me || !me.username){ showLoginModal(); return; }
+  var reqBox = document.getElementById('friendReqList');
+  var friBox = document.getElementById('friendList');
+  var chatBox = document.getElementById('chatSessionList');
+  reqBox.innerHTML = '<div class="empty-hint">加载中…</div>';
+  friBox.innerHTML = '<div class="empty-hint">加载中…</div>';
+  chatBox.innerHTML = '<div class="empty-hint">加载中…</div>';
+  try {
+    // 待处理请求
+    var r1 = await sb.from('battle_social')
+      .select('*').eq('type','friend_req').eq('user_b', me.username).eq('status','pending');
+    var reqs = r1.data || [];
+    if(reqs.length){
+      reqBox.innerHTML = reqs.map(function(r){
+        return '<div class="friend-row">'
+          + '<div class="name">'+esc(r.user_a)+'</div>'
+          + '<button class="btn-green" onclick="acceptFriend(\''+esc(r.user_a)+'\')">接受</button>'
+          + '<button class="btn-red" onclick="rejectFriend(\''+esc(r.user_a)+'\')" style="margin-left:6px">拒绝</button>'
+          + '</div>';
+      }).join('');
+    } else {
+      reqBox.innerHTML = '<div class="empty-hint">暂无请求</div>';
+    }
+
+    // 好友列表
+    var r2 = await sb.from('battle_social')
+      .select('*').eq('type','friend').eq('status','approved')
+      .or('user_a.eq.'+me.username+',user_b.eq.'+me.username);
+    var friends = r2.data || [];
+    if(friends.length){
+      friBox.innerHTML = friends.map(function(f){
+        var other = f.user_a === me.username ? f.user_b : f.user_a;
+        return '<div class="friend-row" onclick="openChat(\''+esc(other)+'\')">'
+          + '<div class="name">'+esc(other)+'</div>'
+          + '<div class="go">💬</div>'
+          + '</div>';
+      }).join('');
+    } else {
+      friBox.innerHTML = '<div class="empty-hint">暂无好友</div>';
+    }
+
+    // 会话列表
+    var r3 = await sb.from('battle_social')
+      .select('*').eq('type','message')
+      .or('user_a.eq.'+me.username+',user_b.eq.'+me.username)
+      .order('created_at', {ascending:false}).limit(50);
+    var msgs = r3.data || [];
+    var seen = {};
+    var sessions = [];
+    msgs.forEach(function(m){
+      var other = m.user_a === me.username ? m.user_b : m.user_a;
+      if(!seen[other]){ seen[other] = true; sessions.push({user: other, last: m.content || ''}); }
+    });
+    if(sessions.length){
+      chatBox.innerHTML = sessions.map(function(s){
+        return '<div class="friend-row" onclick="openChat(\''+esc(s.user)+'\')">'
+          + '<div class="name">'+esc(s.user)+'</div>'
+          + '<div style="color:#666;font-size:12px">'+esc((s.last||'').slice(0,15))+'</div>'
+          + '</div>';
+      }).join('');
+    } else {
+      chatBox.innerHTML = '<div class="empty-hint">暂无会话</div>';
+    }
+  } catch(e){
+    console.error(e);
+  }
+}
+
+window.openChat = function(username){
+  currentChatUser = username;
+  document.getElementById('chatTarget').textContent = username;
+  switchPage('chat');
+  loadChatMessages();
+};
+
+async function loadChatMessages(){
+  var me = getCurrentUser();
+  if(!me || !currentChatUser) return;
+  var box = document.getElementById('chatList');
+  box.innerHTML = '<div class="empty-hint">加载中…</div>';
+  try {
+    var res = await sb.from('battle_social')
+      .select('*').eq('type','message')
+      .or('and(user_a.eq.'+me.username+',user_b.eq.'+currentChatUser+'),and(user_a.eq.'+currentChatUser+',user_b.eq.'+me.username+')')
+      .order('created_at', {ascending:true}).limit(100);
+    var msgs = res.data || [];
+    if(!msgs.length){ box.innerHTML = '<div class="empty-hint">还没有消息</div>'; return; }
+    box.innerHTML = msgs.map(function(m){
+      var isMe = m.user_a === me.username;
+      return '<div class="msg '+(isMe?'self':'other')+'">'+esc(m.content)+'</div>';
+    }).join('');
+    box.scrollTop = box.scrollHeight;
+  } catch(e){
+    box.innerHTML = '<div class="empty-hint">加载失败</div>';
+  }
+}
+
+window.sendChatMsg = async function(){
+  var me = getCurrentUser();
+  if(!me || !currentChatUser) return;
+  var input = document.getElementById('chatInput');
+  var content = input.value.trim();
+  if(!content) return;
+  try {
+    var res = await sb.from('battle_social').insert({
+      type:'message', user_a: me.username, user_b: currentChatUser,
+      content: content, status: 'approved'
+    });
+    if(res.error) throw res.error;
+    input.value = '';
+    loadChatMessages();
+  } catch(e){ alert('发送失败'); }
+};
+
+window.openReportModal = function(){
+  document.getElementById('reportTarget').textContent = currentChatUser || '';
+  document.getElementById('reportReason').value = '';
+  document.getElementById('reportModal').classList.add('show');
+};
+window.hideReportModal = function(){
+  document.getElementById('reportModal').classList.remove('show');
+};
+window.submitReport = async function(){
+  var me = getCurrentUser();
+  if(!me){ alert('请先登录'); return; }
+  var reason = document.getElementById('reportReason').value.trim();
+  if(!reason){ alert('请填写原因'); return; }
+  try {
+    await sb.from('battle_chat_reports').insert({
+      reporter: me.username, target_user: currentChatUser, reason: reason
+    });
+    alert('举报已提交');
+    hideReportModal();
+  } catch(e){ alert('提交失败'); }
+};// ===== 初始化 =====
+function mountAdminEntry(){
+  var me = getCurrentUser();
+  var adminTab = document.querySelector('#navTabs button[data-page="admin"]');
+  if(!adminTab) return;
+  if(me && me.username){
+    adminTab.style.display = '';
+    adminTab.onclick = function(e){
+      e.preventDefault();
+      openAdmin();
+    };
+  } else {
+    adminTab.style.display = 'none';
+  }
+}
+
+function bootstrap(){
+  renderUserTag();
+  mountAdminEntry();
+  loadLeaderboard();
+
+  // 会话轮询
+  setInterval(function(){
+    var u = getCurrentUser();
+    if(u && u.username && pages.friends && pages.friends.classList.contains('active')){
+      loadFriendsPage();
+    }
+  }, 5000);
+
+  // 聊天页轮询
+  setInterval(function(){
+    if(pages.chat && pages.chat.classList.contains('active') && currentChatUser){
+      loadChatMessages();
+    }
+  }, 3000);
+}
+
+// 监听到 renderUserTag 时同步更新管理入口
+var _origRender = renderUserTag;
+renderUserTag = function(){
+  _origRender();
+  mountAdminEntry();
+};
+
+document.addEventListener('DOMContentLoaded', bootstrap);
+
+// 回车提交登录
+document.getElementById('loginPass').addEventListener('keydown', function(e){
+  if(e.key === 'Enter') document.getElementById('loginSubmit').click();
+});
+document.getElementById('friendInput').addEventListener('keydown', function(e){
+  if(e.key === 'Enter') addFriend();
+});
+document.getElementById('chatInput').addEventListener('keydown', function(e){
+  if(e.key === 'Enter') sendChatMsg();
+});
+
+})();
+</script>
+</body>
+</html>
