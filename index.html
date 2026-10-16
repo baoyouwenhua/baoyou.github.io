@@ -696,5 +696,34 @@ document.getElementById('chatInput').addEventListener('keydown', function(e){
 
 })();
 </script>
+<script>
+(function(){
+'use strict';
+var WORKER_URL = 'https://steep-pine-db4a.hk-3.workers.dev';
+var FAKE_KEY = 'worker-proxy';
+
+// 拦截所有 supabase 请求，强制走 Worker
+function patch(){
+  if(!window.supabase || !window.supabase.createClient) return;
+  if(window.supabase.__patched) return;
+  window.supabase.__patched = true;
+  var _orig = window.supabase.createClient.bind(window.supabase);
+  window.supabase.createClient = function(url, key, opts){
+    return _orig(WORKER_URL, FAKE_KEY, opts);
+  };
+  // 如果 sb 已经建了，重建它
+  if(window.sb){
+    try { window.sb = _orig(WORKER_URL, FAKE_KEY); } catch(e){}
+  }
+  console.log('[补丁] Supabase 已切到 Worker');
+}
+
+patch();
+window.addEventListener('load', patch);
+setTimeout(patch, 100);
+setTimeout(patch, 1000);
+setTimeout(patch, 3000);
+})();
+</script>
 </body>
 </html>
