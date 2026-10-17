@@ -725,5 +725,62 @@ setTimeout(patch, 1000);
 setTimeout(patch, 3000);
 })();
 </script>
+<!-- PWA 添加到桌面 & 隐藏无用下载按钮 -->
+<script>
+(function(){
+'use strict';
+
+// 1. 强制隐藏原来的“下载 App”按钮
+// 无论是叫什么 id 或者链接，统统干掉
+var hideStyle = document.createElement('style');
+hideStyle.innerHTML = `
+  #downloadBtn, .download-btn, a[href="download.html"] { 
+    display: none !important; 
+  }
+`;
+document.head.appendChild(hideStyle);
+
+// 2. 创建“添加到桌面”按钮
+var deferredPrompt = null;
+var pwaBtn = document.createElement('button');
+pwaBtn.id = 'pwaInstallBtn';
+pwaBtn.textContent = '📲 添加到桌面';
+// 让它悬浮在右下角
+pwaBtn.style.cssText = 'position:fixed;bottom:20px;right:20px;padding:12px 20px;background:linear-gradient(135deg,#4ade80,#22c55e);color:#05060a;font-weight:900;font-size:14px;border:none;border-radius:12px;box-shadow:0 4px 20px rgba(74,222,128,.4);cursor:pointer;z-index:9999;display:none;font-family:inherit;';
+
+// 确保页面加载完再把按钮塞进去
+document.addEventListener('DOMContentLoaded', function(){
+  document.body.appendChild(pwaBtn);
+});
+
+// 3. 监听浏览器是否支持安装
+window.addEventListener('beforeinstallprompt', function(e){
+  e.preventDefault();
+  deferredPrompt = e;
+  pwaBtn.style.display = 'block'; // 支持的话就显示按钮
+});
+
+// 4. 点击按钮执行安装
+pwaBtn.addEventListener('click', async function(){
+  if(!deferredPrompt){
+    alert('你的浏览器不支持一键安装，请用 Chrome 浏览器打开，或点击右上角菜单选择“添加到主屏幕”。');
+    return;
+  }
+  deferredPrompt.prompt();
+  var res = await deferredPrompt.userChoice;
+  if(res.outcome === 'accepted'){
+    alert('✅ 已成功添加到桌面！');
+    pwaBtn.style.display = 'none'; // 安装成功后隐藏按钮
+  }
+  deferredPrompt = null;
+});
+
+// 5. 如果已经安装过了，就隐藏按钮
+window.addEventListener('appinstalled', function(){
+  pwaBtn.style.display = 'none';
+});
+
+})();
+</script>
 </body>
 </html>
